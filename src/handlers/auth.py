@@ -42,7 +42,16 @@ async def webapp_data_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     if token_data:
         oauth.store_credentials(str(update.effective_user.id), token_data,
                                 update.effective_user.first_name)
-        await update.message.reply_text("✅ Login berhasil! Ketik /start untuk melanjutkan.")
+        await update.message.reply_text(
+            "✅ *Login berhasil!* Google Sheet kamu sudah terhubung.\n\n"
+            "Sekarang kamu bisa:\n"
+            "💰 *Catat pengeluaran* — cukup ketik \"makan siang 50rb\"\n"
+            "📊 *Lihat laporan* — /bulanan /mingguan /dashboard\n"
+            "📋 *Kelola kategori* — /kategori\n"
+            "🎯 *Buat anggaran* — /anggaran\n\n"
+            "Atau ketik /bantuan buat lihat semua perintah.",
+            parse_mode="Markdown",
+        )
     else:
         await update.message.reply_text("❌ Login gagal: token tidak ditemukan. Coba lagi dengan /login")
 
