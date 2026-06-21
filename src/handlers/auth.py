@@ -37,11 +37,19 @@ async def webapp_data_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     token_store: TokenStore = context.bot_data["token_store"]
     pending_tokens: dict = context.bot_data.get("pending_tokens", {})
 
-    # Exchange already happened in /oauth/callback; retrieve from pending
     token_data = pending_tokens.pop(state, None)
-    if token_data:
-        oauth.store_credentials(str(update.effective_user.id), token_data,
-                                update.effective_user.first_name)
+    if not token_data:
+        await update.message.reply_text("❌ Login gagal: token tidak ditemukan. Coba lagi dengan /login")
+        return
+
+    oauth.store_credentials(str(update.effective_user.id), token_data,
+                            update.effective_user.first_name)
+
+    # Cek apakah user sedang dalam onboarding (AUTH state)
+    # Kalau iya, ConversationHandler auth_step yg handle sisanya
+    # Kalau gak (login ulang via /login), kasih panduan aja
+    user_token = token_store.get_user_token(str(update.effective_user.id))
+    if user_token and user_token.get("spreadsheet_id"):
         await update.message.reply_text(
             "✅ *Login berhasil!* Google Sheet kamu sudah terhubung.\n\n"
             "Sekarang kamu bisa:\n"
@@ -52,8 +60,7 @@ async def webapp_data_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
             "Atau ketik /bantuan buat lihat semua perintah.",
             parse_mode="Markdown",
         )
-    else:
-        await update.message.reply_text("❌ Login gagal: token tidak ditemukan. Coba lagi dengan /login")
+    # Kalau gak punya spreadsheet_id, berarti user lagi onboarding — biarin auth_step di ConversationHandler yg lanjutin
 
 
 async def logout_command(update: Update, context: ContextTypes.DEFAULT_TYPE):

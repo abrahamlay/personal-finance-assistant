@@ -115,14 +115,16 @@ async def test_name_step_sends_auth_options(fake_update, fake_context):
 @pytest.mark.asyncio
 async def test_auth_step_offline_mode_skips_sheet_creation(fake_update, fake_context):
     """Choosing offline mode skips sheet setup."""
+    fake_update.message = None
     query = AsyncMock()
     query.data = "auth_offline"
     fake_update.callback_query = query
-    fake_update.message = None
+    fake_update.effective_message = AsyncMock()
+    fake_update.effective_message.web_app_data = None
 
     state = await onboarding.auth_step(fake_update, fake_context)
 
-    assert state == onboarding.TUTORIAL
+    assert state == onboarding.DONE
     query.edit_message_text.assert_called_once()
     fake_context.bot_data["sheet_setup"].setup_new_user.assert_not_called()
 
@@ -151,6 +153,8 @@ async def test_auth_step_manual_mode_shows_instructions(fake_update, fake_contex
 @pytest.mark.asyncio
 async def test_auth_step_google_mode_creates_sheet(fake_update, fake_context):
     """Valid auth code triggers sheet creation and moves to trial step."""
+    fake_update.effective_message = AsyncMock()
+    fake_update.effective_message.web_app_data = None
     fake_context.user_data["display_name"] = "Budi"
     fake_update.message.text = "authcode123"
 

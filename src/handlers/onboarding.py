@@ -80,6 +80,26 @@ async def name_step(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 async def auth_step(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Wait for OAuth completion or handle manual/offline choice."""
     query = update.callback_query
+
+    # Handle WebApp data (user clicked login button in AUTH state)
+    if not query and update.effective_message and update.effective_message.web_app_data:
+        import json
+        data = json.loads(update.effective_message.web_app_data.data)
+        state = (data.get("state") or "").strip()
+        pending_tokens: dict = context.bot_data.get("pending_tokens", {})
+        token_data = pending_tokens.pop(state, None)
+        if token_data:
+            oauth: OAuthManager = context.bot_data["oauth_manager"]
+            oauth.store_credentials(
+                str(update.effective_user.id), token_data,
+                context.user_data.get("display_name", update.effective_user.first_name),
+            )
+            context.user_data["mode"] = "google_sheets"
+            return await _continue_onboarding(update, context)
+        else:
+            await update.message.reply_text("❌ Login gagal. Coba lagi dengan /login.")
+            return AUTH
+
     if query:
         await query.answer()
         if query.data == "auth_offline":
@@ -91,7 +111,7 @@ async def auth_step(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
                 "Ketik /login kalau nanti mau sambungin Google Sheet.",
                 parse_mode="Markdown",
             )
-            return TUTORIAL
+            return await _continue_onboarding(update, context)
         elif query.data == "auth_manual":
             await query.edit_message_text(
                 "📋 *Login Manual*\n\n"
@@ -103,52 +123,63 @@ async def auth_step(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
                 "Atau ketik /skip untuk lewati.",
                 parse_mode="Markdown",
             )
-            return AUTH  # Stay in AUTH state, wait for code
+            return AUTH
 
     # Check if user completed OAuth via WebApp (stored in pending_tokens)
-    # This is handled by webapp_data_handler in auth.py — we check token_store
     if update.message and update.message.text:
         text = update.message.text.strip()
         if text.startswith("/skip"):
             context.user_data["mode"] = "offline"
             await update.message.reply_text("Baik, lanjut tanpa Google Sheet dulu ya.")
-            return TUTORIAL
-        # Assume it's an auth code
-        # Try to exchange it
+            return await _continue_onboarding(update, context)
         try:
             oauth: OAuthManager = context.bot_data["oauth_manager"]
             token_data = oauth.exchange_code(text)
-            oauth.store_credentials(str(update.effective_user.id), token_data, context.user_data["display_name"])
+            oauth.store_credentials(
+                str(update.effective_user.id), token_data,
+                context.user_data.get("display_name", update.effective_user.first_name),
+            )
             context.user_data["mode"] = "google_sheets"
+            return await _continue_onboarding(update, context)
         except Exception:
             await update.message.reply_text("❌ Kode tidak valid. Coba lagi atau ketik /skip")
             return AUTH
 
-    # Check if OAuth was completed (via WebApp handler in auth.py)
+    # Check if OAuth was completed already (token stored by global handler)
     token_store: TokenStore = context.bot_data["token_store"]
     user_token = token_store.get_user_token(str(update.effective_user.id))
     if user_token and user_token.get("access_token"):
         context.user_data["mode"] = "google_sheets"
+        return await _continue_onboarding(update, context)
 
-    # If still no auth, wait (WebApp may be in progress)
+    # If still no auth, wait
     if context.user_data.get("mode") != "google_sheets" and context.user_data.get("mode") != "offline":
         return AUTH  # Keep waiting
 
-    # Auth complete — create sheet if using Google
+    return await _continue_onboarding(update, context)
+
+
+async def _continue_onboarding(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Post-auth: create sheet, offer trial, show tutorial."""
+
+    # Create sheet if using Google
     if context.user_data.get("mode") == "google_sheets":
-        await update.message.reply_text("⏳ Membuat Google Sheet kamu...")
+        msg = await update.effective_message.reply_text("⏳ Membuat Google Sheet kamu...")
         try:
             setup: SheetSetupService = context.bot_data["sheet_setup"]
-            ss_id = setup.setup_new_user(str(update.effective_user.id), context.user_data["display_name"])
+            ss_id = setup.setup_new_user(
+                str(update.effective_user.id),
+                context.user_data.get("display_name", update.effective_user.first_name),
+            )
             context.user_data["spreadsheet_id"] = ss_id
-            await update.message.reply_text(
+            await msg.edit_text(
                 f"✅ Google Sheet berhasil dibuat!\n"
-                f"Nama: *KeuanganBot - {context.user_data['display_name']}*\n\n"
+                f"Nama: *KeuanganBot - {context.user_data.get('display_name', '')}*\n\n"
                 f"Semua transaksi kamu akan otomatis tersimpan di sana.",
                 parse_mode="Markdown",
             )
         except Exception as e:
-            await update.message.reply_text(f"⚠️ Gagal membuat sheet: {e}\nLanjut tanpa sheet dulu ya.")
+            await msg.edit_text(f"⚠️ Gagal membuat sheet: {e}\nLanjut tanpa sheet dulu ya.")
             context.user_data["mode"] = "offline"
 
     # Offer premium trial
@@ -156,7 +187,7 @@ async def auth_step(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         [InlineKeyboardButton("🎁 Coba Premium Gratis 7 Hari", callback_data="trial_start")],
         [InlineKeyboardButton("Nanti aja", callback_data="trial_skip")],
     ])
-    await update.message.reply_text(
+    await update.effective_message.reply_text(
         "🎉 *Setup selesai!*\n\n"
         "Mau coba *Premium gratis 7 hari*? Kamu bisa:\n"
         "📸 Scan struk pakai foto\n"
@@ -272,6 +303,7 @@ def get_onboarding_handler() -> ConversationHandler:
             NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, name_step)],
             AUTH: [
                 MessageHandler(filters.TEXT & ~filters.COMMAND, auth_step),
+                MessageHandler(filters.StatusUpdate.WEB_APP_DATA, auth_step),
                 CallbackQueryHandler(auth_step, pattern="^(auth_manual|auth_offline)$"),
             ],
             DONE: [CallbackQueryHandler(done_step, pattern="^(trial_start|trial_skip)$")],
