@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+env/
+*.egg-info/
+dist/
+build/
+
+# Environment / secrets
+.env
+.env.*
+
+# Local databases and JSON dumps
+*.db
+*.sqlite3
+*.json
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Credentials directory
+credentials/
+credentials/*.json
+
+# IDEs
+.idea/
+.vscode/
+*.swp

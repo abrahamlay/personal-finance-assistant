@@ -1,0 +1,47 @@
+from pydantic_settings import BaseSettings
+from pydantic import Field
+
+
+class Settings(BaseSettings):
+    # Telegram
+    telegram_token: str = Field(alias="TELEGRAM_TOKEN")
+    webhook_url: str = Field(default="", alias="WEBHOOK_URL")
+
+    # Google OAuth
+    google_client_id: str = Field(alias="GOOGLE_CLIENT_ID")
+    google_client_secret: str = Field(alias="GOOGLE_CLIENT_SECRET")
+    oauth_redirect_uri: str = Field(
+        default="http://localhost:8080/oauth/callback", alias="OAUTH_REDIRECT_URI"
+    )
+
+    # Encryption
+    fernet_key: str = Field(alias="FERNET_KEY")
+
+    # Midtrans
+    midtrans_server_key: str = Field(default="", alias="MIDTRANS_SERVER_KEY")
+    midtrans_client_key: str = Field(default="", alias="MIDTRANS_CLIENT_KEY")
+
+    # Gemini AI
+    gemini_api_key: str = Field(default="", alias="GEMINI_API_KEY")
+
+    # Bot config
+    bot_language: str = Field(default="id")
+    max_history_months_free: int = Field(default=3)
+    premium_monthly_price_idr: int = Field(default=25000)
+
+    model_config = {
+        "env_file": ".env",
+        "env_file_encoding": "utf-8",
+        "extra": "ignore",
+    }
+
+
+# Module-level singleton
+_settings: Settings | None = None
+
+
+def get_settings() -> Settings:
+    global _settings
+    if _settings is None:
+        _settings = Settings()
+    return _settings
