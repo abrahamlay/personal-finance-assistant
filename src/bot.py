@@ -205,6 +205,7 @@ def build_bot() -> Application:
 
 async def main():
     """Start bot polling and web server."""
+    settings = get_settings()
     app = build_bot()
 
     # Start web server for OAuth callbacks
@@ -220,17 +221,28 @@ async def main():
     await site.start()
     logger.info(f"Web server started on {settings.dev_host}:{settings.dev_port}")
 
-    # Start bot polling
+    # Manual start — avoid PTB's run_polling() which creates its own loop
+    await app.initialize()
+    await app.start()
+    await app.updater.start_polling()
     logger.info("Bot started. Press Ctrl+C to stop.")
-    await app.run_polling()
+
+    stop = asyncio.Event()
+    try:
+        await stop.wait()
+    except (asyncio.CancelledError, KeyboardInterrupt):
+        pass
+    finally:
+        await app.updater.stop()
+        await app.stop()
+        await app.shutdown()
 
 
 if __name__ == "__main__":
     try:
         asyncio.get_running_loop()
-        # Running inside an existing event loop (OpenCode/Hermes/etc.)
         import nest_asyncio
         nest_asyncio.apply()
     except RuntimeError:
-        pass  # No running loop, proceed normally
+        pass
     asyncio.run(main())
