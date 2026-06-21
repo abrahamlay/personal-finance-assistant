@@ -94,17 +94,22 @@ async def test_name_step_sends_auth_options(fake_update, fake_context):
     """AUTH step entry shows Google Login WebApp button + manual + offline options."""
     fake_update.message.text = "Budi"
 
-    await onboarding.name_step(fake_update, fake_context)
+    with patch("src.handlers.onboarding.get_settings") as mock_get_settings:
+        mock_settings = MagicMock()
+        mock_settings.oauth_redirect_uri = "https://example.com/oauth/callback"
+        mock_get_settings.return_value = mock_settings
 
-    args, kwargs = fake_update.message.reply_text.call_args
-    assert "sambungkan Google Sheet" in args[0]
-    assert "reply_markup" in kwargs
-    inline_keyboard = kwargs["reply_markup"].inline_keyboard
-    assert len(inline_keyboard) == 3
-    labels = [btn.text for row in inline_keyboard for btn in row]
-    assert any("Login dengan Google" in label for label in labels)
-    assert any("Copy-Paste Kode Manual" in label for label in labels)
-    assert any("Mode Offline" in label for label in labels)
+        await onboarding.name_step(fake_update, fake_context)
+
+        args, kwargs = fake_update.message.reply_text.call_args
+        assert "sambungkan Google Sheet" in args[0]
+        assert "reply_markup" in kwargs
+        inline_keyboard = kwargs["reply_markup"].inline_keyboard
+        assert len(inline_keyboard) == 3
+        labels = [btn.text for row in inline_keyboard for btn in row]
+        assert any("Login dengan Google" in label for label in labels)
+        assert any("Login Manual" in label for label in labels)
+        assert any("Mode Offline" in label for label in labels)
 
 
 @pytest.mark.asyncio

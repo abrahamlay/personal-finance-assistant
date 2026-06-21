@@ -8,19 +8,21 @@ from src.auth.token_store import TokenStore
 
 
 async def login_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Send WebApp login button for Google OAuth."""
+    """Send login button for Google OAuth."""
     settings = get_settings()
     oauth_url = f"{settings.oauth_redirect_uri.replace('/oauth/callback', '')}/login"
 
-    keyboard = [
-        [InlineKeyboardButton("🔑 Login dengan Google", web_app=WebAppInfo(url=oauth_url))],
-        [InlineKeyboardButton("📋 Copy-Paste Kode (Manual)", callback_data="auth_manual")],
+    buttons = [
+        [InlineKeyboardButton("📋 Login Manual", callback_data="auth_manual")],
     ]
+    if oauth_url.startswith("https://"):
+        buttons.insert(0, [InlineKeyboardButton("🔑 Login dengan Google", web_app=WebAppInfo(url=oauth_url))])
+
     await update.message.reply_text(
         "🔐 *Login Google Sheet*\n\n"
         "Klik tombol di bawah untuk login dengan akun Google kamu.\n"
         "Data keuanganmu akan disimpan di Google Sheet milikmu sendiri — aman dan privat!",
-        reply_markup=InlineKeyboardMarkup(keyboard),
+        reply_markup=InlineKeyboardMarkup(buttons),
         parse_mode="Markdown",
     )
 

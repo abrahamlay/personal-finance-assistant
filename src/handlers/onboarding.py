@@ -72,11 +72,7 @@ async def name_step(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         f"Data keuanganmu akan disimpan di Google Sheet *milikmu sendiri* — aman, privat, dan bisa kamu lihat kapan aja.\n\n"
         f"Pilih cara login di bawah:",
         parse_mode="Markdown",
-        reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("🔑 Login dengan Google", web_app=WebAppInfo(url=f"{get_settings().oauth_redirect_uri.replace('/oauth/callback', '')}/login"))],
-            [InlineKeyboardButton("📋 Copy-Paste Kode Manual", callback_data="auth_manual")],
-            [InlineKeyboardButton("⏭ Mode Offline (tanpa Google)", callback_data="auth_offline")],
-        ]),
+        reply_markup=_auth_keyboard(),
     )
     return AUTH
 
@@ -255,6 +251,17 @@ def _get_auth_url(context) -> str:
     oauth: OAuthManager = context.bot_data["oauth_manager"]
     url, _ = oauth.get_authorization_url()
     return url
+
+
+def _auth_keyboard() -> InlineKeyboardMarkup:
+    oauth_url = f"{get_settings().oauth_redirect_uri.replace('/oauth/callback', '')}/login"
+    buttons = [
+        [InlineKeyboardButton("📋 Login Manual", callback_data="auth_manual")],
+        [InlineKeyboardButton("⏭ Mode Offline (tanpa Google)", callback_data="auth_offline")],
+    ]
+    if oauth_url.startswith("https://"):
+        buttons.insert(0, [InlineKeyboardButton("🔑 Login dengan Google", web_app=WebAppInfo(url=oauth_url))])
+    return InlineKeyboardMarkup(buttons)
 
 
 def get_onboarding_handler() -> ConversationHandler:

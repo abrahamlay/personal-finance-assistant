@@ -30,7 +30,7 @@ async def test_login_sends_webapp_button(fake_update, fake_context):
     """/login sends inline keyboard with WebApp button."""
     with patch("src.handlers.auth.get_settings") as mock_get_settings:
         mock_settings = MagicMock()
-        mock_settings.oauth_redirect_uri = "http://localhost:8080/oauth/callback"
+        mock_settings.oauth_redirect_uri = "https://localhost:8765/oauth/callback"
         mock_get_settings.return_value = mock_settings
 
         await auth.login_command(fake_update, fake_context)
