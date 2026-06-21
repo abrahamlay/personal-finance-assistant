@@ -106,6 +106,7 @@ def build_bot() -> Application:
     app.add_handler(CommandHandler("dashboard", commands.dashboard_command))
     app.add_handler(CommandHandler("perbaiki", commands.perbaiki_command))
     app.add_handler(CommandHandler("status", commands.status_command))
+    app.add_handler(CommandHandler("verify", commands.verify_command))
 
     # Premium commands and callbacks
     app.add_handler(CommandHandler("premium", premium.premium_command))

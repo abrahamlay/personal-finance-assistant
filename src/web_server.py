@@ -43,20 +43,32 @@ async def oauth_callback(request: web.Request) -> web.Response:
         request.app["pending_tokens"][state] = token_data
         
         # Return success page that calls Telegram.WebApp.sendData()
+        verify_cmd = f"/verify {code} {state}" if code and state else "/login"
         success_html = f"""<!DOCTYPE html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Login Berhasil</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
-</head><body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#f0fdf4">
-<div style="text-align:center;padding:24px"><h2>✅ Login Berhasil!</h2>
-<p>Jendela ini akan menutup otomatis...</p>
-<p id="fallback" style="display:none;font-size:14px">Kalau tidak menutup, kembali ke Telegram dan ketik /login</p></div>
+<style>
+body{{font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#f0fdf4}}
+.card{{text-align:center;padding:24px;max-width:380px}}
+h2{{color:#059669}}
+.fallback{{display:none;margin-top:16px;padding:12px;background:#fef3c7;border-radius:8px;font-size:13px;color:#92400e;text-align:left}}
+code{{display:block;margin-top:8px;padding:8px;background:#fffbeb;border:1px dashed #f59e0b;border-radius:6px;word-break:break-all}}
+</style>
+</head><body>
+<div class="card"><h2>✅ Login Berhasil!</h2>
+<p id="autoMsg">Jendela ini akan menutup otomatis...</p>
+<div id="fallback" class="fallback">
+<strong>Kirim kode ini ke bot Telegram:</strong>
+<code>{verify_cmd}</code>
+<p style="margin:8px 0 0">Salin & paste ke chat bot, atau kembali ke Telegram lalu kirim perintah di atas.</p>
+</div></div>
 <script>
 try {{
-    const code = "{code}";
-    Telegram.WebApp.sendData(JSON.stringify({{code: code, state: "{state or ''}"}}));
+    Telegram.WebApp.sendData(JSON.stringify({{code: "{code}", state: "{state or ''}"}}));
     setTimeout(() => {{ Telegram.WebApp.close(); }}, 1500);
 }} catch(e) {{
+    document.getElementById('autoMsg').style.display = 'none';
     document.getElementById('fallback').style.display = 'block';
 }}
 </script></body></html>"""

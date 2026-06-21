@@ -1,13 +1,17 @@
 """General command handlers."""
+import logging
 import os
 import re
 from datetime import datetime
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, ConversationHandler
 from src.auth.token_store import TokenStore
+from src.auth.oauth import OAuthManager
 from src.services.parser_service import normalize_amount
 from src.middleware import require_login, premium_required
 from src.services.error_handler import bot_error_handler
+
+logger = logging.getLogger(__name__)
 
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -61,6 +65,7 @@ async def bantuan_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/insight — Analisis keuangan AI\n\n"
         "*Lainnya:*\n"
         "/status — Status akun & langganan\n"
+        "/verify — Login manual (paste kode dari browser)\n"
         "/export — Download data CSV\n"
         "/bantuan — Lihat panduan ini"
     )
@@ -433,6 +438,49 @@ def _format_summary(summary: dict, title: str) -> str:
                 f"#{t.get('id')} {emoji} {t.get('kategori')} — Rp {t.get('jumlah', 0):,} ({t.get('deskripsi', '')})"
             )
     return "\n".join(lines)
+
+
+async def verify_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle manual /verify <code> <state> — complete OAuth from desktop fallback."""
+    args = context.args
+    if not args or len(args) < 2:
+        await update.message.reply_text(
+            "Format: `/verify <kode> <state>`\n\n"
+            "Salin kode dari halaman browser setelah login Google.",
+            parse_mode="Markdown",
+        )
+        return
+
+    code, state = args[0], args[1]
+    pending_tokens: dict = context.bot_data.get("pending_tokens", {})
+    token_data = pending_tokens.pop(state, None)
+
+    if token_data:
+        oauth: OAuthManager = context.bot_data["oauth_manager"]
+        oauth.store_credentials(str(update.effective_user.id), token_data,
+                                update.effective_user.first_name)
+        await update.message.reply_text(
+            "✅ *Login berhasil!* Google Sheet kamu sudah terhubung.\n\n"
+            "Sekarang kamu bisa:\n"
+            "💰 *Catat pengeluaran* — cukup ketik \"makan siang 50rb\"\n"
+            "📊 *Lihat laporan* — /bulanan /mingguan /dashboard\n\n"
+            "Atau ketik /bantuan buat lihat semua perintah.",
+            parse_mode="Markdown",
+        )
+        return
+
+    # Token not in pending — try direct exchange
+    try:
+        oauth: OAuthManager = context.bot_data["oauth_manager"]
+        token_data = oauth.exchange_code(code, state)
+        oauth.store_credentials(str(update.effective_user.id), token_data,
+                                update.effective_user.first_name)
+        await update.message.reply_text("✅ Login berhasil via kode manual!")
+    except Exception as e:
+        logger.error("Manual /verify failed for %s: %s", update.effective_user.id, e)
+        await update.message.reply_text(
+            "❌ Kode tidak valid atau sudah kedaluwarsa. Coba /login lagi.",
+        )
 
 
 async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
