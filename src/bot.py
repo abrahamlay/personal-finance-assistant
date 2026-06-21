@@ -227,19 +227,10 @@ async def main():
 
 if __name__ == "__main__":
     try:
-        asyncio.run(main())
-    except RuntimeError as e:
-        if "already running" in str(e):
-            # Running inside an existing event loop (e.g., OpenCode/Hermes)
-            try:
-                import nest_asyncio
-                nest_asyncio.apply()
-                loop = asyncio.get_event_loop()
-                loop.run_until_complete(main())
-            except ImportError:
-                print("ERROR: Running inside an existing event loop.")
-                print("Install nest_asyncio: uv pip install nest_asyncio")
-                print("Or run from a fresh terminal outside OpenCode.")
-                sys.exit(1)
-        else:
-            raise
+        asyncio.get_running_loop()
+        # Running inside an existing event loop (OpenCode/Hermes/etc.)
+        import nest_asyncio
+        nest_asyncio.apply()
+    except RuntimeError:
+        pass  # No running loop, proceed normally
+    asyncio.run(main())

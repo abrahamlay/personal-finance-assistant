@@ -2,7 +2,7 @@
 name = "personal-finance-bot"
 version = "0.1.0"
 description = "Telegram bot assistant for personal finance (Asisten Keuangan)"
-requires-python = ">=3.12"
+requires-python = ">=3.11"
 dependencies = [
     "python-telegram-bot[job-queue,webhooks]>=21.0,<22.0",
     "gspread>=6.0,<7.0",
@@ -14,6 +14,7 @@ dependencies = [
     "matplotlib>=3.9,<4.0",
     "midtransclient>=1.0,<2.0",
     "google-genai>=1.0,<2.0",
+    "nest-asyncio>=1.6,<2.0",
 ]
 
 [project.optional-dependencies]
