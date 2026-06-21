@@ -1,5 +1,6 @@
 """Asisten Keuangan — Telegram bot main entry point."""
 import asyncio
+import sys
 import logging
 from aiohttp import web
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ConversationHandler
@@ -128,6 +129,7 @@ def build_bot() -> Application:
             recurring.CONFIRM: [CallbackQueryHandler(recurring.tagihan_confirm, pattern="^recur:confirm:")],
         },
         fallbacks=[CommandHandler("batal", recurring.tagihan_cancel)],
+        per_message=False,
     )
     app.add_handler(tagihan_handler)
     app.add_handler(CommandHandler("reminder", recurring.reminder_command))
@@ -145,6 +147,7 @@ def build_bot() -> Application:
             commands.CONFIRM: [MessageHandler(filters.TEXT & ~filters.COMMAND, commands.catat_confirm)],
         },
         fallbacks=[CommandHandler("batal", commands.catat_cancel)],
+        per_message=False,
     )
     app.add_handler(catat_handler)
 
@@ -162,6 +165,7 @@ def build_bot() -> Application:
             categories.DELETE_CONFIRM: [CallbackQueryHandler(categories.category_callback, pattern="^cat:(confirm_delete|menu)")],
         },
         fallbacks=[CommandHandler("batal", categories.category_cancel)],
+        per_message=False,
     )
     app.add_handler(kategori_handler)
 
@@ -175,6 +179,7 @@ def build_bot() -> Application:
             budgets.BUDGET_CONFIRM: [CallbackQueryHandler(budgets.budget_confirm, pattern="^budget:(confirm|del):")],
         },
         fallbacks=[CommandHandler("batal", budgets.budget_cancel)],
+        per_message=False,
     )
     app.add_handler(anggaran_handler)
 
@@ -221,4 +226,20 @@ async def main():
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except RuntimeError as e:
+        if "already running" in str(e):
+            # Running inside an existing event loop (e.g., OpenCode/Hermes)
+            try:
+                import nest_asyncio
+                nest_asyncio.apply()
+                loop = asyncio.get_event_loop()
+                loop.run_until_complete(main())
+            except ImportError:
+                print("ERROR: Running inside an existing event loop.")
+                print("Install nest_asyncio: uv pip install nest_asyncio")
+                print("Or run from a fresh terminal outside OpenCode.")
+                sys.exit(1)
+        else:
+            raise

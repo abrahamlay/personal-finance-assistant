@@ -275,4 +275,5 @@ def get_onboarding_handler() -> ConversationHandler:
             CommandHandler("skip", cancel_onboarding),
         ],
         conversation_timeout=600,  # 10 minutes
+        per_message=False,
     )
