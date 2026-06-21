@@ -159,8 +159,7 @@
                     .catch(err => {
                         loading.style.display = 'none';
                         loginBtn.style.display = 'inline-flex';
-                        const state = data && data.state ? data.state : 'UNKNOWN';
-                        fallbackCode.textContent = '/login ' + state;
+                        fallbackCode.textContent = 'Gagal: ' + err.message;
                         fallback.style.display = 'block';
                     });
             });

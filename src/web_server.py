@@ -16,6 +16,14 @@ async def login_page(request: web.Request) -> web.Response:
     except FileNotFoundError:
         return web.Response(text="Login page not found", status=404)
 
+@routes.get("/oauth/authorize")
+async def oauth_authorize(request: web.Request) -> web.Response:
+    """Generate Google OAuth URL for the WebApp login page."""
+    oauth_manager = request.app["oauth_manager"]
+    start_param = request.query.get("start_param")
+    auth_url, state = oauth_manager.get_authorization_url()
+    return web.json_response({"url": auth_url, "state": state})
+
 @routes.get("/oauth/callback")
 async def oauth_callback(request: web.Request) -> web.Response:
     """Handle Google OAuth redirect. Exchange code, store tokens."""
