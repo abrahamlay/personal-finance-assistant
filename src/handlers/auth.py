@@ -65,8 +65,32 @@ async def webapp_data_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
             parse_mode="Markdown",
         )
     else:
-        logger.info("User %s has no spreadsheet_id after webapp login — needs onboarding", update.effective_user.id)
-        # Kalau gak punya spreadsheet_id, berarti user lagi onboarding — biarin auth_step di ConversationHandler yg lanjutin
+        logger.info("User %s has no spreadsheet_id after webapp login — creating sheet now", update.effective_user.id)
+        try:
+            from src.sheets.setup import SheetSetupService
+            setup: SheetSetupService = context.bot_data["sheet_setup"]
+            msg = await update.message.reply_text("⏳ Membuat Google Sheet...")
+            ss_id = setup.setup_new_user(
+                str(update.effective_user.id),
+                update.effective_user.first_name,
+            )
+            await msg.edit_text("✅ Google Sheet berhasil dibuat!")
+            await update.message.reply_text(
+                "✅ *Login berhasil!* Google Sheet kamu sudah terhubung.\n\n"
+                "Sekarang kamu bisa:\n"
+                "💰 *Catat pengeluaran* — cukup ketik \"makan siang 50rb\"\n"
+                "📊 *Lihat laporan* — /bulanan /mingguan /dashboard\n"
+                "📋 *Kelola kategori* — /kategori\n"
+                "🎯 *Buat anggaran* — /anggaran\n\n"
+                "Atau ketik /bantuan buat lihat semua perintah.",
+                parse_mode="Markdown",
+            )
+        except Exception as e:
+            logger.error("Sheet creation failed after webapp login for %s: %s", update.effective_user.id, e, exc_info=True)
+            await msg.edit_text(
+                "⚠️ Gagal membuat Google Sheet.\n"
+                "Coba ketik /start buat setup ulang, atau /status buat cek status.",
+            )
 
 
 async def logout_command(update: Update, context: ContextTypes.DEFAULT_TYPE):

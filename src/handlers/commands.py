@@ -440,6 +440,27 @@ def _format_summary(summary: dict, title: str) -> str:
     return "\n".join(lines)
 
 
+async def _create_sheet_if_needed(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
+    """Create Google Sheet if user doesn't have one. Returns True if successful or already exists."""
+    from src.sheets.setup import SheetSetupService
+    token_store: TokenStore = context.bot_data["token_store"]
+    user_token = token_store.get_user_token(str(update.effective_user.id))
+    if user_token and user_token.get("spreadsheet_id"):
+        return True
+    try:
+        setup: SheetSetupService = context.bot_data["sheet_setup"]
+        msg = await update.message.reply_text("⏳ Membuat Google Sheet...")
+        ss_id = setup.setup_new_user(
+            str(update.effective_user.id),
+            update.effective_user.first_name,
+        )
+        await msg.edit_text("✅ Google Sheet berhasil dibuat!")
+        return True
+    except Exception as e:
+        logger.error("Sheet creation failed after verify: %s", e, exc_info=True)
+        return False
+
+
 async def verify_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle manual /verify <code> <state> — complete OAuth from desktop fallback."""
     args = context.args
@@ -455,10 +476,23 @@ async def verify_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     pending_tokens: dict = context.bot_data.get("pending_tokens", {})
     token_data = pending_tokens.pop(state, None)
 
-    if token_data:
-        oauth: OAuthManager = context.bot_data["oauth_manager"]
-        oauth.store_credentials(str(update.effective_user.id), token_data,
-                                update.effective_user.first_name)
+    user_id = str(update.effective_user.id)
+    oauth: OAuthManager = context.bot_data["oauth_manager"]
+
+    if not token_data:
+        try:
+            token_data = oauth.exchange_code(code, state)
+        except Exception as e:
+            logger.error("Manual /verify failed for %s: %s", user_id, e)
+            await update.message.reply_text(
+                "❌ Kode tidak valid atau sudah kedaluwarsa. Coba /login lagi.",
+            )
+            return
+
+    oauth.store_credentials(user_id, token_data, update.effective_user.first_name)
+
+    sheet_ok = await _create_sheet_if_needed(update, context)
+    if sheet_ok:
         await update.message.reply_text(
             "✅ *Login berhasil!* Google Sheet kamu sudah terhubung.\n\n"
             "Sekarang kamu bisa:\n"
@@ -467,19 +501,10 @@ async def verify_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "Atau ketik /bantuan buat lihat semua perintah.",
             parse_mode="Markdown",
         )
-        return
-
-    # Token not in pending — try direct exchange
-    try:
-        oauth: OAuthManager = context.bot_data["oauth_manager"]
-        token_data = oauth.exchange_code(code, state)
-        oauth.store_credentials(str(update.effective_user.id), token_data,
-                                update.effective_user.first_name)
-        await update.message.reply_text("✅ Login berhasil via kode manual!")
-    except Exception as e:
-        logger.error("Manual /verify failed for %s: %s", update.effective_user.id, e)
+    else:
         await update.message.reply_text(
-            "❌ Kode tidak valid atau sudah kedaluwarsa. Coba /login lagi.",
+            "✅ Login berhasil, tapi gagal membuat Google Sheet.\n"
+            "Coba ketik /start buat setup ulang, atau /status buat cek.",
         )
 
 
