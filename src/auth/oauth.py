@@ -39,10 +39,12 @@ class OAuthManager:
             state=state,
         )
         flow.redirect_uri = self.settings.oauth_redirect_uri
+        flow.code_verifier = None
         auth_url, _ = flow.authorization_url(
             access_type="offline",
             include_granted_scopes="true",
             prompt="consent",
+            code_challenge_method=None,
         )
         return auth_url, state
     
