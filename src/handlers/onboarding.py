@@ -96,7 +96,7 @@ async def auth_step(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
             await query.edit_message_text(
                 "📋 *Login Manual*\n\n"
                 "1. Buka link ini di browser:\n"
-                f"{_get_auth_url(context)}\n\n"
+                f"`{_get_auth_url(context)}`\n\n"
                 "2. Login & izinkan akses\n"
                 "3. Copy kode yang muncul\n"
                 "4. Paste di sini ya!\n\n"
