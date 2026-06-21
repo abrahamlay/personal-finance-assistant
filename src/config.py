@@ -8,10 +8,10 @@ class Settings(BaseSettings):
     webhook_url: str = Field(default="", alias="WEBHOOK_URL")
 
     # Google OAuth
-    google_client_id: str = Field(alias="GOOGLE_CLIENT_ID")
-    google_client_secret: str = Field(alias="GOOGLE_CLIENT_SECRET")
+    google_client_id: str = Field(default="", alias="GOOGLE_CLIENT_ID")
+    google_client_secret: str = Field(default="", alias="GOOGLE_CLIENT_SECRET")
     oauth_redirect_uri: str = Field(
-        default="http://localhost:8080/oauth/callback", alias="OAUTH_REDIRECT_URI"
+        default="http://localhost:8765/oauth/callback", alias="OAUTH_REDIRECT_URI"
     )
 
     # Encryption
@@ -23,6 +23,10 @@ class Settings(BaseSettings):
 
     # Gemini AI
     gemini_api_key: str = Field(default="", alias="GEMINI_API_KEY")
+
+    # Dev / local config (untuk menghindari konflik port)
+    dev_host: str = Field(default="127.0.0.1", alias="DEV_HOST")
+    dev_port: int = Field(default=8765, alias="DEV_PORT")
 
     # Bot config
     bot_language: str = Field(default="id")

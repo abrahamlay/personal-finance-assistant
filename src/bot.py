@@ -216,9 +216,9 @@ async def main():
     )
     runner = web.AppRunner(web_app)
     await runner.setup()
-    site = web.TCPSite(runner, "0.0.0.0", 8080)
+    site = web.TCPSite(runner, settings.dev_host, settings.dev_port)
     await site.start()
-    logger.info("Web server started on port 8080")
+    logger.info(f"Web server started on {settings.dev_host}:{settings.dev_port}")
 
     # Start bot polling
     logger.info("Bot started. Press Ctrl+C to stop.")
