@@ -71,13 +71,13 @@ async def health_check(request: web.Request) -> web.Response:
     """Health check endpoint."""
     return web.json_response({"status": "ok", "service": "personal-finance-bot"})
 
-def create_app(oauth_manager, token_store, subscription_service=None, midtrans_payment=None) -> web.Application:
+def create_app(oauth_manager, token_store, subscription_service=None, midtrans_payment=None, pending_tokens=None) -> web.Application:
     """Create and configure the aiohttp application."""
     app = web.Application()
     app["oauth_manager"] = oauth_manager
     app["token_store"] = token_store
     app["subscription_service"] = subscription_service
     app["midtrans_payment"] = midtrans_payment
-    app["pending_tokens"] = {}  # state → token_data mapping
+    app["pending_tokens"] = pending_tokens or {}
     app.add_routes(routes)
     return app

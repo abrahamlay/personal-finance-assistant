@@ -89,6 +89,7 @@ def build_bot() -> Application:
     app.bot_data["ocr_service"] = ocr_service
     app.bot_data["recurring_service"] = recurring_service
     app.bot_data["insight_service"] = insight_service
+    app.bot_data["pending_tokens"] = {}
 
     # Register command handlers
     # Onboarding wizard replaces the plain /start handler
@@ -215,6 +216,7 @@ async def main():
         app.bot_data["token_store"],
         subscription_service=app.bot_data["subscription_service"],
         midtrans_payment=app.bot_data["midtrans_payment"],
+        pending_tokens=app.bot_data["pending_tokens"],
     )
 
     host = settings.dev_host

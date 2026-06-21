@@ -31,19 +31,20 @@ async def webapp_data_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     """Handle WebApp data callback after OAuth success."""
     data_str = update.effective_message.web_app_data.data
     data = json.loads(data_str)
-    code = data.get("code")
-    state = data.get("state") or None
+    state = (data.get("state") or "").strip()
 
     oauth: OAuthManager = context.bot_data["oauth_manager"]
     token_store: TokenStore = context.bot_data["token_store"]
+    pending_tokens: dict = context.bot_data.get("pending_tokens", {})
 
-    try:
-        token_data = oauth.exchange_code(code, state=state)
+    # Exchange already happened in /oauth/callback; retrieve from pending
+    token_data = pending_tokens.pop(state, None)
+    if token_data:
         oauth.store_credentials(str(update.effective_user.id), token_data,
                                 update.effective_user.first_name)
         await update.message.reply_text("✅ Login berhasil! Ketik /start untuk melanjutkan.")
-    except Exception as e:
-        await update.message.reply_text(f"❌ Login gagal: {str(e)}. Coba lagi dengan /login")
+    else:
+        await update.message.reply_text("❌ Login gagal: token tidak ditemukan. Coba lagi dengan /login")
 
 
 async def logout_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
