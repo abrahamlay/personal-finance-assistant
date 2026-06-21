@@ -57,7 +57,7 @@ def test_settings_default_values(reset_settings, monkeypatch):
     assert settings.midtrans_client_key == ""
     assert settings.gemini_api_key == ""
     assert settings.dev_host == "127.0.0.1"
-    assert settings.dev_port == 8765
+    assert settings.port == 8765
     assert settings.bot_language == "id"
     assert settings.max_history_months_free == 3
     assert settings.premium_monthly_price_idr == 25000

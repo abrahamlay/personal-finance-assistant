@@ -24,9 +24,10 @@ class Settings(BaseSettings):
     # Gemini AI
     gemini_api_key: str = Field(default="", alias="GEMINI_API_KEY")
 
-    # Dev / local config (untuk menghindari konflik port)
+    # Port (Railway/Layanan cloud akan set PORT via env)
+    port: int = Field(default=8765, alias="PORT")
+    # Dev / local config
     dev_host: str = Field(default="127.0.0.1", alias="DEV_HOST")
-    dev_port: int = Field(default=8765, alias="DEV_PORT")
 
     # Bot config
     bot_language: str = Field(default="id")

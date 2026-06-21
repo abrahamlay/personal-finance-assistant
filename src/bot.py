@@ -5,6 +5,7 @@ import logging
 from aiohttp import web
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ConversationHandler
 
+from telegram import Update
 from src.config import get_settings
 from src.auth.token_store import TokenStore
 from src.auth.oauth import OAuthManager
@@ -208,23 +209,38 @@ async def main():
     settings = get_settings()
     app = build_bot()
 
-    # Start web server for OAuth callbacks
+    # Start web server for OAuth callbacks + Telegram webhook
     web_app = create_app(
         app.bot_data["oauth_manager"],
         app.bot_data["token_store"],
         subscription_service=app.bot_data["subscription_service"],
         midtrans_payment=app.bot_data["midtrans_payment"],
     )
+
+    host = settings.dev_host
+    port = settings.port
+
+    if settings.webhook_url:
+        web_app["_bot_app"] = app
+        web_app.router.add_post("/webhook", _telegram_webhook)
+        host = "0.0.0.0"
+
     runner = web.AppRunner(web_app)
     await runner.setup()
-    site = web.TCPSite(runner, settings.dev_host, settings.dev_port)
+    site = web.TCPSite(runner, host, port)
     await site.start()
-    logger.info(f"Web server started on {settings.dev_host}:{settings.dev_port}")
+    logger.info(f"Web server started on {host}:{port}")
 
-    # Manual start — avoid PTB's run_polling() which creates its own loop
     await app.initialize()
     await app.start()
-    await app.updater.start_polling()
+
+    if settings.webhook_url:
+        url = f"{settings.webhook_url}/webhook"
+        await app.bot.set_webhook(url=url)
+        logger.info(f"Webhook set to {url}")
+    else:
+        await app.updater.start_polling()
+
     logger.info("Bot started. Press Ctrl+C to stop.")
 
     stop = asyncio.Event()
@@ -233,9 +249,21 @@ async def main():
     except (asyncio.CancelledError, KeyboardInterrupt):
         pass
     finally:
-        await app.updater.stop()
+        if settings.webhook_url:
+            await app.bot.delete_webhook()
+        else:
+            await app.updater.stop()
         await app.stop()
         await app.shutdown()
+
+
+async def _telegram_webhook(request: web.Request) -> web.Response:
+    """Handle incoming Telegram webhook update."""
+    app: Application = request.app["_bot_app"]
+    data = await request.json()
+    update = Update.de_json(data, app.bot)
+    await app.process_update(update)
+    return web.Response(text="ok")
 
 
 if __name__ == "__main__":
