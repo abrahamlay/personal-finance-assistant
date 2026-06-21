@@ -17,6 +17,7 @@ class OAuthManager:
     def __init__(self, token_store: TokenStore):
         self.settings = get_settings()
         self.token_store = token_store
+        self._code_verifiers: dict[str, str] = {}
     
     def _build_client_config(self) -> dict:
         return {
@@ -39,13 +40,12 @@ class OAuthManager:
             state=state,
         )
         flow.redirect_uri = self.settings.oauth_redirect_uri
-        flow.code_verifier = None
         auth_url, _ = flow.authorization_url(
             access_type="offline",
             include_granted_scopes="true",
             prompt="consent",
-            code_challenge_method=None,
         )
+        self._code_verifiers[state] = flow.code_verifier
         return auth_url, state
     
     def exchange_code(self, code: str, state: str | None = None) -> dict:
@@ -56,6 +56,9 @@ class OAuthManager:
             state=state,
         )
         flow.redirect_uri = self.settings.oauth_redirect_uri
+        code_verifier = self._code_verifiers.pop(state, None)
+        if code_verifier:
+            flow.code_verifier = code_verifier
         flow.fetch_token(code=code)
         credentials = flow.credentials
         return {

@@ -32,12 +32,13 @@ async def webapp_data_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     data_str = update.effective_message.web_app_data.data
     data = json.loads(data_str)
     code = data.get("code")
+    state = data.get("state") or None
 
     oauth: OAuthManager = context.bot_data["oauth_manager"]
     token_store: TokenStore = context.bot_data["token_store"]
 
     try:
-        token_data = oauth.exchange_code(code)
+        token_data = oauth.exchange_code(code, state=state)
         oauth.store_credentials(str(update.effective_user.id), token_data,
                                 update.effective_user.first_name)
         await update.message.reply_text("✅ Login berhasil! Ketik /start untuk melanjutkan.")
