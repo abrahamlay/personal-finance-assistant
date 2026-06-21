@@ -1,8 +1,11 @@
 """aiohttp web server for OAuth callback, Telegram webhook, and payment webhooks."""
 import json
+import logging
 from aiohttp import web
 
 from src.payments.midtrans import midtrans_webhook_handler
+
+logger = logging.getLogger(__name__)
 
 routes = web.RouteTableDef()
 
@@ -59,6 +62,7 @@ try {{
 </script></body></html>"""
         return web.Response(text=success_html, content_type="text/html")
     except Exception as e:
+        logger.error("OAuth callback error (state=%s): %s", state, e, exc_info=True)
         return web.Response(text=f"OAuth error: {str(e)}", status=500)
 
 @routes.post("/payments/midtrans/webhook")

@@ -2,6 +2,7 @@
 Google OAuth 2.0 Manager for per-user Google Sheets access.
 Uses google-auth-oauthlib for OAuth flow and google.oauth2.credentials for token management.
 """
+import logging
 import secrets
 from google_auth_oauthlib.flow import Flow
 from google.oauth2.credentials import Credentials
@@ -9,6 +10,8 @@ from google.auth.transport.requests import Request
 from src.config import get_settings
 from src.auth.token_store import TokenStore
 from src.auth.encryption import decrypt_token
+
+logger = logging.getLogger(__name__)
 
 
 class OAuthManager:
@@ -104,6 +107,7 @@ class OAuthManager:
         import time
         user = self.token_store.get_user_token(telegram_id)
         if not user:
+            logger.warning("No token found for user %s", telegram_id)
             return None
         refresh_token_str = decrypt_token(user["refresh_token"])
         credentials = Credentials(
@@ -114,11 +118,17 @@ class OAuthManager:
             client_secret=self.settings.google_client_secret,
         )
         if user["token_expiry"] and user["token_expiry"] < time.time():
-            credentials.refresh(Request())
+            logger.info("Token expired for user %s, refreshing...", telegram_id)
+            try:
+                credentials.refresh(Request())
+            except Exception as e:
+                logger.error("Token refresh failed for user %s: %s", telegram_id, e, exc_info=True)
+                raise
             self.token_store.update_user_token(
                 telegram_id,
                 access_token=credentials.token,
                 refresh_token=credentials.refresh_token,
                 token_expiry=credentials.expiry.timestamp() if credentials.expiry else 0,
             )
+            logger.info("Token refreshed successfully for user %s", telegram_id)
         return credentials

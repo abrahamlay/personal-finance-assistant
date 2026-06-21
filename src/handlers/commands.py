@@ -60,6 +60,7 @@ async def bantuan_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/reminder — Lihat tagihan mendatang\n"
         "/insight — Analisis keuangan AI\n\n"
         "*Lainnya:*\n"
+        "/status — Status akun & langganan\n"
         "/export — Download data CSV\n"
         "/bantuan — Lihat panduan ini"
     )
@@ -432,6 +433,57 @@ def _format_summary(summary: dict, title: str) -> str:
                 f"#{t.get('id')} {emoji} {t.get('kategori')} — Rp {t.get('jumlah', 0):,} ({t.get('deskripsi', '')})"
             )
     return "\n".join(lines)
+
+
+async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show user status: login, sheet, premium, subscription expiry."""
+    import time
+    user = update.effective_user
+    token_store: TokenStore = context.bot_data["token_store"]
+    user_token = token_store.get_user_token(str(user.id))
+
+    lines = [f"👤 *Status Akun — {user.first_name}*"]
+
+    # Login status
+    if user_token and user_token.get("access_token"):
+        lines.append("\n🔐 *Login Google:* ✅ Aktif")
+        if user_token.get("spreadsheet_id"):
+            lines.append("📊 *Google Sheet:* ✅ Terhubung")
+        else:
+            lines.append("📊 *Google Sheet:* ❌ Belum ada — ketik /start buat setup")
+    else:
+        lines.append("\n🔐 *Login Google:* ❌ Belum login — ketik /login")
+
+    # Premium status
+    sub_service = context.bot_data.get("subscription_service")
+    if sub_service:
+        sub = sub_service.get_active(str(user.id))
+        if sub:
+            plan = sub.get("plan", "-")
+            status = sub.get("status", "-")
+            plan_info = sub_service.PLANS.get(plan, {})
+            lines.append(f"\n⭐ *Premium:* ✅ Aktif")
+            lines.append(f"   Paket: {plan_info.get('name', plan.capitalize())}")
+            lines.append(f"   Status: {status.capitalize()}")
+            end_date = sub.get("end_date")
+            if plan == "lifetime":
+                lines.append("   Berlaku: 🕐 Seumur hidup")
+            elif end_date:
+                days_left = max(0, int((end_date - time.time()) / 86400))
+                expiry = datetime.fromtimestamp(end_date).strftime("%d %b %Y")
+                lines.append(f"   Berlaku sampai: {expiry} ({days_left} hari lagi)")
+                if sub.get("auto_renew"):
+                    lines.append("   Auto-renew: ✅ Aktif")
+                else:
+                    lines.append("   Auto-renew: ❌ Nonaktif")
+            trial_end = sub.get("trial_end")
+            if trial_end and trial_end > time.time():
+                trial_days = max(0, int((trial_end - time.time()) / 86400))
+                lines.append(f"   🎁 Masa trial: {trial_days} hari lagi")
+        else:
+            lines.append("\n⭐ *Premium:* ❌ Tidak aktif — ketik /premium")
+
+    await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
 
 
 def _format_monthly_summary(summary: dict) -> str:

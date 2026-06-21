@@ -1,10 +1,13 @@
 """Auth command handlers: /login, /logout"""
 import json
+import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 from telegram.ext import ContextTypes
 from src.config import get_settings
 from src.auth.oauth import OAuthManager
 from src.auth.token_store import TokenStore
+
+logger = logging.getLogger(__name__)
 
 
 async def login_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -39,6 +42,7 @@ async def webapp_data_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     token_data = pending_tokens.pop(state, None)
     if not token_data:
+        logger.warning("WebApp login failed: state %s not found in pending_tokens for user %s", state, update.effective_user.id)
         await update.message.reply_text("❌ Login gagal: token tidak ditemukan. Coba lagi dengan /login")
         return
 
@@ -60,7 +64,9 @@ async def webapp_data_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
             "Atau ketik /bantuan buat lihat semua perintah.",
             parse_mode="Markdown",
         )
-    # Kalau gak punya spreadsheet_id, berarti user lagi onboarding — biarin auth_step di ConversationHandler yg lanjutin
+    else:
+        logger.info("User %s has no spreadsheet_id after webapp login — needs onboarding", update.effective_user.id)
+        # Kalau gak punya spreadsheet_id, berarti user lagi onboarding — biarin auth_step di ConversationHandler yg lanjutin
 
 
 async def logout_command(update: Update, context: ContextTypes.DEFAULT_TYPE):

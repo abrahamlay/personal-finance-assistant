@@ -16,7 +16,7 @@ SELECT_ACTION, ADD_NAME, ADD_TYPE, ADD_ICON, EDIT_SELECT, EDIT_NAME, DELETE_SELE
 def _user_and_ss_id(context: ContextTypes.DEFAULT_TYPE, user) -> tuple[str, str]:
     token_store: TokenStore = context.bot_data["token_store"]
     user_token = token_store.get_user_token(str(user.id))
-    return str(user.id), user_token["spreadsheet_id"]
+    return str(user.id), (user_token or {}).get("spreadsheet_id", "")
 
 
 async def _show_category_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:

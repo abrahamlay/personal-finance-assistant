@@ -8,13 +8,13 @@ from src.middleware.premium_gate import premium_required
 
 
 def require_login(func):
-    """Decorator that checks if user is logged in. Sends prompt if not."""
+    """Decorator that checks if user has valid Google credentials. Sends prompt if not."""
     @functools.wraps(func)
     async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE, *args, **kwargs):
         user = update.effective_user
         token_store: TokenStore = context.bot_data["token_store"]
         user_token = token_store.get_user_token(str(user.id))
-        if not user_token or not user_token.get("spreadsheet_id"):
+        if not user_token or not user_token.get("access_token"):
             await update.message.reply_text(
                 "🔐 Kamu belum login. Ketik /login dulu ya!"
             )

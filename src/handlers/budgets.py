@@ -17,7 +17,7 @@ BUDGET_CATEGORY, BUDGET_AMOUNT, BUDGET_PERIOD, BUDGET_CONFIRM = range(300, 304)
 def _user_and_ss_id(context: ContextTypes.DEFAULT_TYPE, user) -> tuple[str, str]:
     token_store: TokenStore = context.bot_data["token_store"]
     user_token = token_store.get_user_token(str(user.id))
-    return str(user.id), user_token["spreadsheet_id"]
+    return str(user.id), (user_token or {}).get("spreadsheet_id", "")
 
 
 def _current_month() -> str:

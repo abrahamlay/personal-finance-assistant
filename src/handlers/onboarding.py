@@ -1,4 +1,5 @@
 """Onboarding wizard: 4-step ConversationHandler for new user setup."""
+import logging
 import time
 from telegram import (
     Update,
@@ -21,6 +22,8 @@ from src.config import get_settings
 from src.auth.token_store import TokenStore
 from src.auth.oauth import OAuthManager
 from src.sheets.setup import SheetSetupService
+
+logger = logging.getLogger(__name__)
 
 # Conversation states
 (NAME, AUTH, DONE, TUTORIAL) = range(4)
@@ -179,7 +182,17 @@ async def _continue_onboarding(update: Update, context: ContextTypes.DEFAULT_TYP
                 parse_mode="Markdown",
             )
         except Exception as e:
-            await msg.edit_text(f"⚠️ Gagal membuat sheet: {e}\nLanjut tanpa sheet dulu ya.")
+            logger.error("Sheet creation failed for user %s: %s", update.effective_user.id, e, exc_info=True)
+            await msg.edit_text(
+                "⚠️ Gagal membuat Google Sheet.\n"
+                f"Error: {e}\n\n"
+                "Coba:\n"
+                "1. Pastikan Google Drive API & Sheets API sudah di-enable\n"
+                "2. Cek https://console.cloud.google.com/apis/library\n"
+                "3. Ketik /start buat coba lagi nanti.\n\n"
+                "Sementara pake *Mode Offline* dulu ya.",
+                parse_mode="Markdown",
+            )
             context.user_data["mode"] = "offline"
 
     # Offer premium trial

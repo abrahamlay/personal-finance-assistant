@@ -1,4 +1,5 @@
 """Creates and initializes a per-user Google Spreadsheet for the finance bot."""
+import logging
 import time
 from datetime import datetime
 from typing import Optional
@@ -8,6 +9,8 @@ import gspread
 from src.sheets.client import SheetsClient
 from src.auth.token_store import TokenStore
 from src.sheets.dashboard import DashboardGenerator
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_CATEGORIES = [
     # (nama, tipe, icon)
@@ -76,9 +79,15 @@ class SheetSetupService:
 
     def _create_spreadsheet(self, telegram_id: str, display_name: str) -> str:
         """Create a new Google Spreadsheet titled 'KeuanganBot - {name}'."""
+        logger.info("Creating spreadsheet for user %s", telegram_id)
         client = self.sheets.authenticate(telegram_id)
         title = f"KeuanganBot - {display_name}"
-        spreadsheet = client.create(title)
+        try:
+            spreadsheet = client.create(title)
+        except Exception as e:
+            logger.error("Failed to create spreadsheet for %s: %s", telegram_id, e, exc_info=True)
+            raise
+        logger.info("Spreadsheet %s created for user %s", spreadsheet.id, telegram_id)
         return spreadsheet.id
 
     def _create_tabs(self, telegram_id: str, spreadsheet_id: str):
