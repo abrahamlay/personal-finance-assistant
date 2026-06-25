@@ -34,6 +34,32 @@ async def start_onboarding(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     user = update.effective_user
     token_store: TokenStore = context.bot_data["token_store"]
 
+    # Handle deep link from desktop fallback: /start login_<state>
+    if context.args and context.args[0].startswith("login_"):
+        state = context.args[0][6:]
+        pending_tokens: dict = context.bot_data.get("pending_tokens", {})
+        token_data = pending_tokens.pop(state, None)
+        if token_data:
+            oauth: OAuthManager = context.bot_data["oauth_manager"]
+            oauth.store_credentials(str(user.id), token_data, user.first_name)
+            try:
+                setup: SheetSetupService = context.bot_data["sheet_setup"]
+                msg = await update.message.reply_text("⏳ Memproses login...")
+                ss_id = setup.setup_new_user(str(user.id), user.first_name)
+                await msg.edit_text("✅ Google Sheet berhasil dibuat!")
+            except Exception:
+                pass
+            await update.message.reply_text(
+                "✅ *Login berhasil!* Sekarang kamu bisa:\n"
+                "💰 *Catat pengeluaran* — cukup ketik \"makan siang 50rb\"\n"
+                "📊 *Lihat laporan* — /bulanan /mingguan /dashboard\n\n"
+                "Atau ketik /bantuan buat lihat semua perintah.",
+                parse_mode="Markdown",
+            )
+        else:
+            await update.message.reply_text("❌ Kode login tidak valid atau sudah kedaluwarsa. Coba /login lagi.")
+        return ConversationHandler.END
+
     # Already onboarded?
     user_token = token_store.get_user_token(str(user.id))
     if user_token and user_token.get("spreadsheet_id"):

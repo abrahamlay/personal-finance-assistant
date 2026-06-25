@@ -5,6 +5,7 @@ from pydantic import Field
 class Settings(BaseSettings):
     # Telegram
     telegram_token: str = Field(alias="TELEGRAM_TOKEN")
+    bot_username: str = Field(default="", alias="BOT_USERNAME")
     webhook_url: str = Field(default="", alias="WEBHOOK_URL")
 
     # Google OAuth

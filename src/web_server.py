@@ -3,6 +3,7 @@ import json
 import logging
 from aiohttp import web
 
+from src.config import get_settings
 from src.payments.midtrans import midtrans_webhook_handler
 
 logger = logging.getLogger(__name__)
@@ -43,7 +44,8 @@ async def oauth_callback(request: web.Request) -> web.Response:
         request.app["pending_tokens"][state] = token_data
         
         # Return success page that calls Telegram.WebApp.sendData()
-        verify_cmd = f"/verify {code} {state}" if code and state else "/login"
+        bot_user = get_settings().bot_username
+        deep_link = f"https://t.me/{bot_user}?start=login_{state}" if bot_user and state else ""
         success_html = f"""<!DOCTYPE html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Login Berhasil</title>
@@ -52,16 +54,18 @@ async def oauth_callback(request: web.Request) -> web.Response:
 body{{font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#f0fdf4}}
 .card{{text-align:center;padding:24px;max-width:380px}}
 h2{{color:#059669}}
-.fallback{{display:none;margin-top:16px;padding:12px;background:#fef3c7;border-radius:8px;font-size:13px;color:#92400e;text-align:left}}
-code{{display:block;margin-top:8px;padding:8px;background:#fffbeb;border:1px dashed #f59e0b;border-radius:6px;word-break:break-all}}
+.fallback{{display:none;margin-top:16px;padding:16px;background:#fef3c7;border-radius:10px;font-size:13px;color:#92400e;text-align:center}}
+.btn-telegram{{display:inline-block;margin-top:12px;padding:12px 24px;background:#059669;color:#fff;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px}}
+code{{display:block;margin-top:8px;padding:8px;background:#fffbeb;border:1px dashed #f59e0b;border-radius:6px;word-break:break-all;font-size:12px}}
 </style>
 </head><body>
 <div class="card"><h2>✅ Login Berhasil!</h2>
-<p id="autoMsg">Jendela ini akan menutup otomatis...</p>
+<p id="autoMsg">Jendela akan menutup otomatis...</p>
 <div id="fallback" class="fallback">
-<strong>Kirim kode ini ke bot Telegram:</strong>
-<code>{verify_cmd}</code>
-<p style="margin:8px 0 0">Salin & paste ke chat bot, atau kembali ke Telegram lalu kirim perintah di atas.</p>
+<p style="margin:0 0 4px"><strong>Klik tombol di bawah</strong> untuk kembali ke Telegram:</p>
+<a class="btn-telegram" href="{deep_link}" target="_blank">↗️ Buka Telegram</a>
+<p style="margin:12px 0 4px;font-size:12px">Atau kirim kode ini manual:</p>
+<code>/verify {code} {state or ''}</code>
 </div></div>
 <script>
 try {{
