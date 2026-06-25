@@ -70,6 +70,6 @@ def create_app(oauth_manager, token_store, subscription_service=None, midtrans_p
     app["token_store"] = token_store
     app["subscription_service"] = subscription_service
     app["midtrans_payment"] = midtrans_payment
-    app["pending_tokens"] = pending_tokens or {}
+    app["pending_tokens"] = pending_tokens if pending_tokens is not None else {}
     app.add_routes(routes)
     return app
