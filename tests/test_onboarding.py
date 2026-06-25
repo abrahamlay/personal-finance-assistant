@@ -37,6 +37,7 @@ def fake_context():
         "subscription_service": MagicMock(),
     }
     context.user_data = {}
+    context.args = []
     return context
 
 

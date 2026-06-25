@@ -49,6 +49,26 @@ async def oauth_callback(request: web.Request) -> web.Response:
         success_html = f"""<!DOCTYPE html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Login Berhasil</title>
+<script>
+(function() {{
+    // Restore Telegram WebApp init params that were saved before the OAuth redirect.
+    try {{
+        var stored = window.sessionStorage.getItem('__tg_init_params__');
+        if (stored && !window.location.hash.match(/tgWebAppData/)) {{
+            var params = JSON.parse(stored);
+            var parts = [];
+            for (var k in params) {{
+                if (params.hasOwnProperty(k)) {{
+                    parts.push(encodeURIComponent(k) + '=' + encodeURIComponent(params[k]));
+                }}
+            }}
+            if (parts.length) {{
+                window.location.hash = parts.join('&');
+            }}
+        }}
+    }} catch (e) {{}}
+}})();
+</script>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
 body{{font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#f0fdf4}}

@@ -57,6 +57,8 @@ async def test_login_route_returns_html(client):
     assert resp.status == 200
     text = await resp.text()
     assert "Login dengan Google" in text
+    # The page must persist Telegram init params across the OAuth redirect.
+    assert "__tg_init_params__" in text
 
 
 async def test_oauth_callback_missing_code_returns_400(client):
@@ -77,6 +79,9 @@ async def test_oauth_callback_success_stores_pending(client, mock_oauth_manager)
     assert resp.status == 200
     text = await resp.text()
     assert "Login Berhasil" in text
+    # The success page must restore Telegram WebApp context before calling sendData.
+    assert "__tg_init_params__" in text
+    assert "sendData" in text
 
     pending = client.app["pending_tokens"]
     assert "state_abc" in pending

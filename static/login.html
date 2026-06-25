@@ -138,6 +138,31 @@
             const fallback = document.getElementById('fallback');
             const fallbackCode = document.getElementById('fallbackCode');
 
+            // Persist Telegram WebApp init params in sessionStorage so they survive
+            // the OAuth redirect chain (Google -> /oauth/callback).
+            function saveTelegramInitParams() {
+                try {
+                    const initParams = {};
+                    const search = new URLSearchParams(window.location.search);
+                    search.forEach(function(value, key) {
+                        if (key.indexOf('tgWebApp') === 0) initParams[key] = value;
+                    });
+                    const hash = window.location.hash.replace(/^#/, '');
+                    if (hash) {
+                        const hashParams = new URLSearchParams(hash.replace(/\?/g, '&'));
+                        hashParams.forEach(function(value, key) {
+                            if (key.indexOf('tgWebApp') === 0) initParams[key] = value;
+                        });
+                    }
+                    if (Object.keys(initParams).length) {
+                        window.sessionStorage.setItem('__tg_init_params__', JSON.stringify(initParams));
+                    }
+                } catch (e) {}
+            }
+
+            // Save init params on first load and before leaving for Google OAuth.
+            saveTelegramInitParams();
+
             const authUrl = tg.initDataUnsafe && tg.initDataUnsafe.start_param
                 ? '/oauth/authorize?start_param=' + encodeURIComponent(tg.initDataUnsafe.start_param)
                 : '/oauth/authorize';
@@ -151,6 +176,7 @@
                     .then(r => r.json())
                     .then(data => {
                         if (data.url) {
+                            saveTelegramInitParams();
                             window.location.href = data.url;
                         } else {
                             throw new Error('Tidak ada URL OAuth');
@@ -164,7 +190,7 @@
                     });
             });
 
-            // Jika berhasil kembali dari Google, kirim data ke bot
+            // Jika berhasil kembali dari Google di jendela yang sama, kirim data ke bot.
             const params = new URLSearchParams(window.location.search);
             const code = params.get('code');
             const state = params.get('state');

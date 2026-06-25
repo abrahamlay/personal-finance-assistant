@@ -20,7 +20,7 @@ def fake_update():
 def fake_context():
     context = MagicMock()
     token_store = MagicMock()
-    token_store.get_user_token.return_value = {"spreadsheet_id": "SS1"}
+    token_store.get_user_token.return_value = {"spreadsheet_id": "SS1", "access_token": "access_123"}
     token_store.get_active_subscription.return_value = {"plan": "monthly"}
 
     tx_service = MagicMock()
@@ -57,8 +57,12 @@ def fake_context():
         "dashboard_generator": dashboard_generator,
         "insight_service": insight_service,
         "subscription_service": MagicMock(),
+        "oauth_manager": MagicMock(),
+        "sheet_setup": MagicMock(),
+        "pending_tokens": {},
     }
     context.user_data = {}
+    context.args = []
     return context
 
 
@@ -232,3 +236,73 @@ async def test_insight_command_sends_insight(fake_update, fake_context):
     await commands.insight_command(fake_update, fake_context)
     fake_context.bot_data["insight_service"].analyze.assert_awaited_once()
     assert fake_update.message.reply_text.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_verify_command_uses_pending_token(fake_update, fake_context):
+    """If the OAuth callback stored a pending token, /verify consumes it."""
+    fake_update.message.text = "/verify authcode state123"
+    fake_context.args = ["authcode", "state123"]
+    fake_context.bot_data["pending_tokens"] = {
+        "state123": {"access_token": "tok", "refresh_token": "ref", "expiry": 9999999999},
+    }
+    fake_context.bot_data["sheet_setup"].setup_new_user.return_value = "SS_NEW"
+
+    await commands.verify_command(fake_update, fake_context)
+
+    fake_context.bot_data["oauth_manager"].store_credentials.assert_called_once()
+    text = fake_update.message.reply_text.call_args[0][0]
+    assert "Login berhasil" in text
+
+
+@pytest.mark.asyncio
+async def test_verify_command_idempotent_when_already_logged_in(fake_update, fake_context):
+    """/verify succeeds without re-exchanging an already-used code."""
+    fake_update.message.text = "/verify authcode state123"
+    fake_context.args = ["authcode", "state123"]
+    fake_context.bot_data["pending_tokens"] = {}
+    fake_context.bot_data["token_store"].get_user_token.return_value = {
+        "access_token": "existing_tok", "spreadsheet_id": "SS1",
+    }
+
+    await commands.verify_command(fake_update, fake_context)
+
+    fake_context.bot_data["oauth_manager"].exchange_code.assert_not_called()
+    fake_context.bot_data["oauth_manager"].store_credentials.assert_not_called()
+    text = fake_update.message.reply_text.call_args[0][0]
+    assert "Login berhasil" in text
+
+
+@pytest.mark.asyncio
+async def test_verify_command_falls_back_to_exchange(fake_update, fake_context):
+    """Without a pending token and not logged in, /verify exchanges the code."""
+    fake_update.message.text = "/verify authcode state123"
+    fake_context.args = ["authcode", "state123"]
+    fake_context.bot_data["pending_tokens"] = {}
+    fake_context.bot_data["token_store"].get_user_token.return_value = None
+    fake_context.bot_data["oauth_manager"].exchange_code.return_value = {
+        "access_token": "tok", "refresh_token": "ref", "expiry": 9999999999,
+    }
+    fake_context.bot_data["sheet_setup"].setup_new_user.return_value = "SS_NEW"
+
+    await commands.verify_command(fake_update, fake_context)
+
+    fake_context.bot_data["oauth_manager"].exchange_code.assert_called_once_with("authcode", "state123")
+    fake_context.bot_data["oauth_manager"].store_credentials.assert_called_once()
+    text = fake_update.message.reply_text.call_args[0][0]
+    assert "Login berhasil" in text
+
+
+@pytest.mark.asyncio
+async def test_verify_command_invalid_code(fake_update, fake_context):
+    """An invalid/already-used code without a stored token shows expiry error."""
+    fake_update.message.text = "/verify badcode state123"
+    fake_context.args = ["badcode", "state123"]
+    fake_context.bot_data["pending_tokens"] = {}
+    fake_context.bot_data["token_store"].get_user_token.return_value = None
+    fake_context.bot_data["oauth_manager"].exchange_code.side_effect = Exception("invalid grant")
+
+    await commands.verify_command(fake_update, fake_context)
+
+    text = fake_update.message.reply_text.call_args[0][0]
+    assert "kedaluwarsa" in text

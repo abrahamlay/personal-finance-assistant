@@ -473,13 +473,36 @@ async def verify_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     code, state = args[0], args[1]
+    user_id = str(update.effective_user.id)
+    oauth: OAuthManager = context.bot_data["oauth_manager"]
+    token_store: TokenStore = context.bot_data["token_store"]
+
     pending_tokens: dict = context.bot_data.get("pending_tokens", {})
     token_data = pending_tokens.pop(state, None)
 
-    user_id = str(update.effective_user.id)
-    oauth: OAuthManager = context.bot_data["oauth_manager"]
-
     if not token_data:
+        # The WebApp may have already consumed the pending token and stored the
+        # credentials. Treat /verify as idempotent instead of trying to re-exchange
+        # an already-used Google authorization code.
+        existing = token_store.get_user_token(user_id)
+        if existing and existing.get("access_token"):
+            sheet_ok = await _create_sheet_if_needed(update, context)
+            if sheet_ok:
+                await update.message.reply_text(
+                    "✅ *Login berhasil!* Google Sheet kamu sudah terhubung.\n\n"
+                    "Sekarang kamu bisa:\n"
+                    "💰 *Catat pengeluaran* — cukup ketik \"makan siang 50rb\"\n"
+                    "📊 *Lihat laporan* — /bulanan /mingguan /dashboard\n\n"
+                    "Atau ketik /bantuan buat lihat semua perintah.",
+                    parse_mode="Markdown",
+                )
+            else:
+                await update.message.reply_text(
+                    "✅ Login berhasil, tapi gagal membuat Google Sheet.\n"
+                    "Coba ketik /start buat setup ulang, atau /status buat cek.",
+                )
+            return
+
         try:
             token_data = oauth.exchange_code(code, state)
         except Exception as e:
