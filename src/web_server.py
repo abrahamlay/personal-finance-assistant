@@ -68,13 +68,18 @@ code{{display:block;margin-top:8px;padding:8px;background:#fffbeb;border:1px das
 <code>/verify {code} {state or ''}</code>
 </div></div>
 <script>
-try {{
-    Telegram.WebApp.sendData(JSON.stringify({{code: "{code}", state: "{state or ''}"}}));
-    setTimeout(() => {{ Telegram.WebApp.close(); }}, 1500);
-}} catch(e) {{
+(function() {{
+    var isWebApp = typeof Telegram !== 'undefined' && Telegram.WebApp && Telegram.WebApp.initData;
+    if (isWebApp) {{
+        try {{
+            Telegram.WebApp.sendData(JSON.stringify({{code: "{code}", state: "{state or ''}"}}));
+            setTimeout(function() {{ Telegram.WebApp.close(); }}, 1500);
+            return;
+        }} catch(e) {{}}
+    }}
     document.getElementById('autoMsg').style.display = 'none';
     document.getElementById('fallback').style.display = 'block';
-}}
+}})();
 </script></body></html>"""
         return web.Response(text=success_html, content_type="text/html")
     except Exception as e:
