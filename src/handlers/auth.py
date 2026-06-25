@@ -66,10 +66,10 @@ async def webapp_data_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         )
     else:
         logger.info("User %s has no spreadsheet_id after webapp login — creating sheet now", update.effective_user.id)
+        msg = await update.message.reply_text("⏳ Membuat Google Sheet...")
         try:
             from src.sheets.setup import SheetSetupService
             setup: SheetSetupService = context.bot_data["sheet_setup"]
-            msg = await update.message.reply_text("⏳ Membuat Google Sheet...")
             ss_id = setup.setup_new_user(
                 str(update.effective_user.id),
                 update.effective_user.first_name,

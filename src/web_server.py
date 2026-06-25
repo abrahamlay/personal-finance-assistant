@@ -1,9 +1,9 @@
 """aiohttp web server for OAuth callback, Telegram webhook, and payment webhooks."""
 import json
 import logging
+from urllib.parse import urlencode
 from aiohttp import web
 
-from src.config import get_settings
 from src.payments.midtrans import midtrans_webhook_handler
 
 logger = logging.getLogger(__name__)
@@ -42,69 +42,16 @@ async def oauth_callback(request: web.Request) -> web.Response:
         token_data = oauth_manager.exchange_code(code, state)
         # Store temporarily keyed by state; bot will link to telegram_id
         request.app["pending_tokens"][state] = token_data
-        
-        # Return success page that calls Telegram.WebApp.sendData()
-        bot_user = get_settings().bot_username
-        deep_link = f"https://t.me/{bot_user}?start=login_{state}" if bot_user and state else ""
-        success_html = f"""<!DOCTYPE html>
-<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Login Berhasil</title>
-<script>
-(function() {{
-    // Restore Telegram WebApp init params that were saved before the OAuth redirect.
-    try {{
-        var stored = window.sessionStorage.getItem('__tg_init_params__');
-        if (stored && !window.location.hash.match(/tgWebAppData/)) {{
-            var params = JSON.parse(stored);
-            var parts = [];
-            for (var k in params) {{
-                if (params.hasOwnProperty(k)) {{
-                    parts.push(encodeURIComponent(k) + '=' + encodeURIComponent(params[k]));
-                }}
-            }}
-            if (parts.length) {{
-                window.location.hash = parts.join('&');
-            }}
-        }}
-    }} catch (e) {{}}
-}})();
-</script>
-<script src="https://telegram.org/js/telegram-web-app.js"></script>
-<style>
-body{{font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#f0fdf4}}
-.card{{text-align:center;padding:24px;max-width:380px}}
-h2{{color:#059669}}
-.fallback{{display:none;margin-top:16px;padding:16px;background:#fef3c7;border-radius:10px;font-size:13px;color:#92400e;text-align:center}}
-.btn-telegram{{display:inline-block;margin-top:12px;padding:12px 24px;background:#059669;color:#fff;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px}}
-code{{display:block;margin-top:8px;padding:8px;background:#fffbeb;border:1px dashed #f59e0b;border-radius:6px;word-break:break-all;font-size:12px}}
-</style>
-</head><body>
-<div class="card"><h2>✅ Login Berhasil!</h2>
-<p id="autoMsg">Jendela akan menutup otomatis...</p>
-<div id="fallback" class="fallback">
-<p style="margin:0 0 4px"><strong>Klik tombol di bawah</strong> untuk kembali ke Telegram:</p>
-<a class="btn-telegram" href="{deep_link}" target="_blank">↗️ Buka Telegram</a>
-<p style="margin:12px 0 4px;font-size:12px">Atau kirim kode ini manual:</p>
-<code>/verify {code} {state or ''}</code>
-</div></div>
-<script>
-(function() {{
-    var isWebApp = typeof Telegram !== 'undefined' && Telegram.WebApp && Telegram.WebApp.initData;
-    if (isWebApp) {{
-        try {{
-            Telegram.WebApp.sendData(JSON.stringify({{code: "{code}", state: "{state or ''}"}}));
-            setTimeout(function() {{ Telegram.WebApp.close(); }}, 1500);
-            return;
-        }} catch(e) {{}}
-    }}
-    document.getElementById('autoMsg').style.display = 'none';
-    document.getElementById('fallback').style.display = 'block';
-}})();
-</script></body></html>"""
-        return web.Response(text=success_html, content_type="text/html")
     except Exception as e:
         logger.error("OAuth callback error (state=%s): %s", state, e, exc_info=True)
         return web.Response(text=f"OAuth error: {str(e)}", status=500)
+
+    # Redirect back to the WebApp login page with code+state params.
+    # login.html (the WebApp origin) will detect these params and call
+    # Telegram.WebApp.sendData() from the correct origin — ensuring the
+    # Telegram WebApp bridge accepts the call.
+    redirect_url = f"/login?{urlencode({'code': code, 'state': state})}"
+    raise web.HTTPFound(redirect_url)
 
 @routes.post("/payments/midtrans/webhook")
 async def midtrans_webhook(request: web.Request) -> web.Response:

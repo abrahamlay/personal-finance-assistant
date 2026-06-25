@@ -68,6 +68,17 @@
         }
         .btn-google:hover { background: #047857; }
         .btn-google:disabled { background: #9ca3af; cursor: not-allowed; }
+        .btn-telegram {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 12px 24px;
+            background: #059669;
+            color: #fff;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 14px;
+        }
         .spinner {
             display: none;
             width: 18px;
@@ -190,17 +201,29 @@
                     });
             });
 
-            // Jika berhasil kembali dari Google di jendela yang sama, kirim data ke bot.
+            // Setelah redirect balik dari Google OAuth, kirim data ke bot.
+            // Halaman ini adalah WebApp origin — sendData() bekerja di sini.
             const params = new URLSearchParams(window.location.search);
             const code = params.get('code');
             const state = params.get('state');
             if (code && state) {
+                loading.style.display = 'block';
+                loginBtn.style.display = 'none';
                 try {
                     tg.sendData(JSON.stringify({ code: code, state: state }));
-                    setTimeout(() => tg.close(), 1500);
+                    setTimeout(function() { tg.close(); }, 1500);
                 } catch (e) {
-                    fallbackCode.textContent = '/verify ' + code + ' ' + state;
+                    loading.style.display = 'none';
+                    var botUser = tg.initDataUnsafe && tg.initDataUnsafe.receiver ? tg.initDataUnsafe.receiver.username : 'BamFinanceBot';
+                    var deepLink = 'https://t.me/' + botUser + '?start=login_' + state;
+                    var verifyCmd = '/verify ' + code + ' ' + state;
+                    fallback.innerHTML =
+                        '<strong>Klik tombol di bawah</strong> untuk kembali ke Telegram:' +
+                        '<br><a class="btn-telegram" href="' + deepLink + '" target="_blank">↗️ Buka Telegram</a>' +
+                        '<p style="margin:12px 0 4px;font-size:12px">Atau kirim kode ini manual:</p>' +
+                        '<code>' + verifyCmd + '</code>';
                     fallback.style.display = 'block';
+                    fallbackCode.textContent = verifyCmd;
                 }
             }
         })();

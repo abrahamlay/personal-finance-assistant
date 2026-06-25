@@ -76,12 +76,12 @@ async def test_oauth_callback_success_stores_pending(client, mock_oauth_manager)
     }
 
     resp = await client.get("/oauth/callback?code=auth_code&state=state_abc")
+    # Redirects (302) to /login?code=...&state=..., test client follows it
     assert resp.status == 200
     text = await resp.text()
-    assert "Login Berhasil" in text
-    # The success page must restore Telegram WebApp context before calling sendData.
-    assert "__tg_init_params__" in text
+    # login.html should detect code+state params and call sendData
     assert "sendData" in text
+    assert "code" in text
 
     pending = client.app["pending_tokens"]
     assert "state_abc" in pending
