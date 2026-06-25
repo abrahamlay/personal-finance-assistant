@@ -20,7 +20,7 @@ def fake_update():
 def fake_context():
     context = MagicMock()
     token_store = MagicMock()
-    token_store.get_user_token.return_value = {"spreadsheet_id": "SS1"}
+    token_store.get_user_token.return_value = {"spreadsheet_id": "SS1", "access_token": "test_access_token"}
 
     rec_service = MagicMock()
     rec_service.add_recurring.return_value = {"success": True, "id": 1}

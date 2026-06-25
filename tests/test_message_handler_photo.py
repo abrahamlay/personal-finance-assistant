@@ -26,7 +26,7 @@ def fake_context():
     context.bot.get_file = AsyncMock(return_value=file_mock)
 
     token_store = MagicMock()
-    token_store.get_user_token.return_value = {"spreadsheet_id": "SS1"}
+    token_store.get_user_token.return_value = {"spreadsheet_id": "SS1", "access_token": "test_access_token"}
     token_store.get_active_subscription.return_value = {"plan": "monthly"}
 
     ocr_service = MagicMock()

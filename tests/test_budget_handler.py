@@ -39,7 +39,7 @@ def fake_update():
 def fake_context():
     context = MagicMock()
     token_store = MagicMock(spec=TokenStore)
-    token_store.get_user_token.return_value = {"spreadsheet_id": "SPREADSHEET_ID"}
+    token_store.get_user_token.return_value = {"spreadsheet_id": "SPREADSHEET_ID", "access_token": "test_access_token"}
 
     sheets_budgets = MagicMock()
     sheets_budgets.list_all.return_value = [

@@ -83,7 +83,11 @@ class TestReportServiceWeeklySummary:
             {"id": "2", "tipe": "expense", "jumlah": 20000, "kategori": "B", "tanggal": "2026-06-14", "deskripsi": "", "created_at": "2"},
         ]
 
-        summary = report_service.get_weekly_summary("123", "SS_ID")
+        with patch("src.services.report_service.datetime") as mock_dt:
+            mock_dt.now.return_value = datetime(2026, 6, 21)  # Sunday
+            mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw) if a else mock_dt.now()
+            mock_dt.strftime = datetime.strftime
+            summary = report_service.get_weekly_summary("123", "SS_ID")
 
         # 2026-06-21 is a Sunday; 2026-06-14 is previous Sunday -> should be excluded
         assert summary["expense"] == 10000
@@ -94,7 +98,11 @@ class TestReportServiceWeeklySummary:
             {"id": "2", "tipe": "expense", "jumlah": 20000, "kategori": "B", "tanggal": "2026-06-21", "deskripsi": "", "created_at": "2"},
         ]
 
-        summary = report_service.get_weekly_summary("123", "SS_ID")
+        with patch("src.services.report_service.datetime") as mock_dt:
+            mock_dt.now.return_value = datetime(2026, 6, 21)  # Sunday
+            mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw) if a else mock_dt.now()
+            mock_dt.strftime = datetime.strftime
+            summary = report_service.get_weekly_summary("123", "SS_ID")
 
         assert summary["expense"] == 30000
 
