@@ -65,27 +65,37 @@ async def test_oauth_callback_missing_code_returns_400(client):
     resp = await client.get("/oauth/callback")
     assert resp.status == 400
     text = await resp.text()
-    assert "Missing authorization code" in text
+    assert "Missing code or state parameter" in text
 
 
-async def test_oauth_callback_success_stores_pending(client, mock_oauth_manager):
+async def test_oauth_callback_success_redirects_to_telegram(client, mock_oauth_manager):
     mock_oauth_manager.exchange_code.return_value = {
         "access_token": "access_123",
         "refresh_token": "refresh_456",
         "expiry": 1234567890,
     }
 
-    resp = await client.get("/oauth/callback?code=auth_code&state=state_abc")
-    # Redirects (302) to /login?code=...&state=..., test client follows it
-    assert resp.status == 200
-    text = await resp.text()
-    # login.html should detect code+state params and call sendData
-    assert "sendData" in text
-    assert "code" in text
+    resp = await client.get("/oauth/callback?code=auth_code&state=12345::state_abc", allow_redirects=False)
+    assert resp.status == 302
+    assert resp.headers["Location"] == "https://t.me/BamFinanceBot?start=oauth_done"
+    
+    mock_oauth_manager.store_credentials.assert_called_once_with(
+        "12345",
+        {
+            "access_token": "access_123",
+            "refresh_token": "refresh_456",
+            "expiry": 1234567890,
+        }
+    )
 
-    pending = client.app["pending_tokens"]
-    assert "state_abc" in pending
-    assert pending["state_abc"]["access_token"] == "access_123"
+
+async def test_oauth_authorize_redirects_with_valid_token(client, mock_oauth_manager):
+    mock_oauth_manager.get_authorization_url.return_value = ("https://accounts.google.com/o/oauth2/auth?test=1", "state123")
+    client.app["login_tokens"]["session_token_123"] = "telegram_user_id"
+    
+    resp = await client.get("/oauth/authorize?token=session_token_123", allow_redirects=False)
+    assert resp.status == 302
+    assert "https://accounts.google.com/o/oauth2/auth" in resp.headers["Location"]
 
 
 async def test_health_returns_ok(client):

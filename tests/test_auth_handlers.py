@@ -26,8 +26,8 @@ def fake_context():
 
 
 @pytest.mark.asyncio
-async def test_login_sends_webapp_button(fake_update, fake_context):
-    """/login sends inline keyboard with WebApp button."""
+async def test_login_sends_url_button(fake_update, fake_context):
+    """/login sends inline keyboard with Google Login URL button."""
     with patch("src.handlers.auth.get_settings") as mock_get_settings:
         mock_settings = MagicMock()
         mock_settings.oauth_redirect_uri = "https://localhost:8765/oauth/callback"
@@ -40,7 +40,10 @@ async def test_login_sends_webapp_button(fake_update, fake_context):
         assert "Login Google Sheet" in args[0]
         assert "reply_markup" in kwargs
         reply_markup = kwargs["reply_markup"]
-        assert len(reply_markup.inline_keyboard) == 2
+        assert len(reply_markup.inline_keyboard) == 1
+        button = reply_markup.inline_keyboard[0][0]
+        assert button.url is not None
+        assert "oauth/authorize" in button.url
 
 
 @pytest.mark.asyncio

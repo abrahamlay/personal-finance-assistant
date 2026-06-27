@@ -1,5 +1,6 @@
 """Onboarding wizard: 4-step ConversationHandler for new user setup."""
 import logging
+import secrets
 import time
 from telegram import (
     Update,
@@ -34,31 +35,38 @@ async def start_onboarding(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     user = update.effective_user
     token_store: TokenStore = context.bot_data["token_store"]
 
-    # Handle deep link from desktop fallback: /start login_<state>
-    if context.args and context.args[0].startswith("login_"):
-        state = context.args[0][6:]
-        pending_tokens: dict = context.bot_data.get("pending_tokens", {})
-        token_data = pending_tokens.pop(state, None)
-        if token_data:
-            oauth: OAuthManager = context.bot_data["oauth_manager"]
-            oauth.store_credentials(str(user.id), token_data, user.first_name)
-            try:
-                setup: SheetSetupService = context.bot_data["sheet_setup"]
-                msg = await update.message.reply_text("⏳ Memproses login...")
-                ss_id = setup.setup_new_user(str(user.id), user.first_name)
-                await msg.edit_text("✅ Google Sheet berhasil dibuat!")
-            except Exception:
-                pass
-            await update.message.reply_text(
-                "✅ *Login berhasil!* Sekarang kamu bisa:\n"
-                "💰 *Catat pengeluaran* — cukup ketik \"makan siang 50rb\"\n"
-                "📊 *Lihat laporan* — /bulanan /mingguan /dashboard\n\n"
-                "Atau ketik /bantuan buat lihat semua perintah.",
-                parse_mode="Markdown",
-            )
+    # Handle deep link from oauth redirect: /start oauth_done
+    if context.args and context.args[0] == "oauth_done":
+        user_token = token_store.get_user_token(str(user.id))
+        if user_token and user_token.get("access_token"):
+            if "display_name" in context.user_data:
+                # They were in onboarding! Continue onboarding.
+                context.user_data["mode"] = "google_sheets"
+                return await _continue_onboarding(update, context)
+            else:
+                # Standalone login!
+                msg = await update.message.reply_text("⏳ Menghubungkan Google Sheet...")
+                try:
+                    setup: SheetSetupService = context.bot_data["sheet_setup"]
+                    ss_id = setup.setup_new_user(str(user.id), user.first_name)
+                    await msg.edit_text(
+                        "✅ *Login berhasil!* Google Sheet kamu sudah terhubung.\n\n"
+                        "Sekarang kamu bisa:\n"
+                        "💰 *Catat pengeluaran* — cukup ketik \"makan siang 50rb\"\n"
+                        "📊 *Lihat laporan* — /bulanan /mingguan /dashboard\n\n"
+                        "Atau ketik /bantuan buat lihat semua perintah.",
+                        parse_mode="Markdown",
+                    )
+                except Exception as e:
+                    logger.error("Sheet creation failed in standalone login: %s", e)
+                    await msg.edit_text(
+                        "⚠️ Login berhasil, tapi gagal membuat Google Sheet.\n"
+                        "Coba ketik /start buat setup ulang, atau /status buat cek status.",
+                    )
+                return ConversationHandler.END
         else:
-            await update.message.reply_text("❌ Kode login tidak valid atau sudah kedaluwarsa. Coba /login lagi.")
-        return ConversationHandler.END
+            await update.message.reply_text("❌ Otorisasi Google tidak ditemukan. Silakan ketik /login untuk mencoba lagi.")
+            return ConversationHandler.END
 
     # Already onboarded?
     user_token = token_store.get_user_token(str(user.id))
@@ -99,9 +107,9 @@ async def name_step(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         f"Oke, {context.user_data['display_name']}! 🎉\n\n"
         f"*Sekarang kita sambungkan Google Sheet kamu.*\n"
         f"Data keuanganmu akan disimpan di Google Sheet *milikmu sendiri* — aman, privat, dan bisa kamu lihat kapan aja.\n\n"
-        f"Pilih cara login di bawah:",
+        f"Klik tombol di bawah untuk login:",
         parse_mode="Markdown",
-        reply_markup=_auth_keyboard(),
+        reply_markup=_auth_keyboard(context, str(update.effective_user.id)),
     )
     return AUTH
 
@@ -323,14 +331,19 @@ def _get_auth_url(context) -> str:
     return url
 
 
-def _auth_keyboard() -> InlineKeyboardMarkup:
-    oauth_url = f"{get_settings().oauth_redirect_uri.replace('/oauth/callback', '')}/login"
+def _auth_keyboard(context: ContextTypes.DEFAULT_TYPE, user_id: str) -> InlineKeyboardMarkup:
+    import secrets
+    login_token = secrets.token_urlsafe(16)
+    context.bot_data.setdefault("login_tokens", {})[login_token] = user_id
+    
+    settings = get_settings()
+    base_url = settings.oauth_redirect_uri.replace('/oauth/callback', '')
+    auth_url = f"{base_url}/oauth/authorize?token={login_token}"
+    
     buttons = [
-        [InlineKeyboardButton("📋 Login Manual", callback_data="auth_manual")],
+        [InlineKeyboardButton("🔑 Login dengan Google", url=auth_url)],
         [InlineKeyboardButton("⏭ Mode Offline (tanpa Google)", callback_data="auth_offline")],
     ]
-    if oauth_url.startswith("https://"):
-        buttons.insert(0, [InlineKeyboardButton("🔑 Login dengan Google", web_app=WebAppInfo(url=oauth_url))])
     return InlineKeyboardMarkup(buttons)
 
 

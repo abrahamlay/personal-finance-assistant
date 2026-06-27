@@ -92,7 +92,7 @@ async def test_name_step_accepts_text_input(fake_update, fake_context):
 
 @pytest.mark.asyncio
 async def test_name_step_sends_auth_options(fake_update, fake_context):
-    """AUTH step entry shows Google Login WebApp button + manual + offline options."""
+    """AUTH step entry shows Google Login button + offline options."""
     fake_update.message.text = "Budi"
 
     with patch("src.handlers.onboarding.get_settings") as mock_get_settings:
@@ -106,10 +106,9 @@ async def test_name_step_sends_auth_options(fake_update, fake_context):
         assert "sambungkan Google Sheet" in args[0]
         assert "reply_markup" in kwargs
         inline_keyboard = kwargs["reply_markup"].inline_keyboard
-        assert len(inline_keyboard) == 3
+        assert len(inline_keyboard) == 2
         labels = [btn.text for row in inline_keyboard for btn in row]
         assert any("Login dengan Google" in label for label in labels)
-        assert any("Login Manual" in label for label in labels)
         assert any("Mode Offline" in label for label in labels)
 
 
