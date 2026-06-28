@@ -87,20 +87,21 @@ class OAuthManager:
     
     def store_credentials(self, telegram_id: str, token_data: dict, display_name: str = ""):
         """Store (or update) encrypted credentials in SQLite."""
-        refresh_token = token_data.get("refresh_token", "")
+        refresh_token = token_data.get("refresh_token")
         existing = self.token_store.get_user_token(telegram_id)
         if existing:
-            self.token_store.update_user_token(
-                telegram_id,
-                access_token=token_data["access_token"],
-                refresh_token=refresh_token,
-                token_expiry=token_data.get("expiry", 0),
-            )
+            updates = {
+                "access_token": token_data["access_token"],
+                "token_expiry": token_data.get("expiry", 0),
+            }
+            if refresh_token:
+                updates["refresh_token"] = refresh_token
+            self.token_store.update_user_token(telegram_id, **updates)
         else:
             self.token_store.create_user_token(
                 telegram_id=telegram_id,
                 access_token=token_data["access_token"],
-                refresh_token=refresh_token,
+                refresh_token=refresh_token or "",
                 token_expiry=token_data.get("expiry", 0),
                 display_name=display_name,
             )
@@ -112,7 +113,7 @@ class OAuthManager:
         if not user:
             logger.warning("No token found for user %s", telegram_id)
             return None
-        refresh_token_str = decrypt_token(user["refresh_token"])
+        refresh_token_str = user["refresh_token"]
         credentials = Credentials(
             token=user["access_token"],
             refresh_token=refresh_token_str,
