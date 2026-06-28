@@ -113,6 +113,7 @@ def build_bot() -> Application:
     app.add_handler(CommandHandler("premium", premium.premium_command))
     app.add_handler(CommandHandler("statuspremium", premium.statuspremium_command))
     app.add_handler(CommandHandler("cancel", premium.cancel_command))
+    app.add_handler(CommandHandler("whitelist", premium.whitelist_command))
     app.add_handler(CallbackQueryHandler(premium.premium_callback, pattern="^premium_"))
 
     # OCR /insight premium commands

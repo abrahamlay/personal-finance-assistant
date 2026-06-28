@@ -163,3 +163,19 @@ async def cancel_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "⚠️ Kamu belum memiliki langganan Premium yang aktif.",
             parse_mode="Markdown",
         )
+
+async def whitelist_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Secret command to grant Lifetime Premium for testing."""
+    user_id = str(update.effective_user.id)
+    sub_service: SubscriptionService = context.bot_data["subscription_service"]
+    
+    if sub_service.is_premium(user_id):
+        await update.message.reply_text("✅ Kamu sudah memiliki akses Premium!")
+        return
+        
+    try:
+        sub = sub_service.create_subscription(user_id, "lifetime")
+        sub_service.activate_subscription(user_id, payment_ref="whitelist_admin")
+        await update.message.reply_text("🎉 BERHASIL! Akses Premium Seumur Hidup telah diaktifkan untuk akun kamu. Selamat menguji fitur AI!")
+    except Exception as e:
+        await update.message.reply_text(f"⚠️ Gagal: {e}")
