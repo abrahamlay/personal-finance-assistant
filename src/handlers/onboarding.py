@@ -60,8 +60,12 @@ async def start_onboarding(update: Update, context: ContextTypes.DEFAULT_TYPE) -
                 except Exception as e:
                     logger.error("Sheet creation failed in standalone login: %s", e)
                     await msg.edit_text(
-                        "⚠️ Login berhasil, tapi gagal membuat Google Sheet.\n"
-                        "Coba ketik /start buat setup ulang, atau /status buat cek status.",
+                        f"⚠️ Login berhasil, tapi gagal membuat Google Sheet.\n\n"
+                        f"*Error:* `{e}`\n\n"
+                        "Pastikan kamu sudah mengaktifkan *Google Drive API* dan *Google Sheets API* di Google Cloud Console kamu:\n"
+                        "👉 https://console.cloud.google.com/apis/library\n\n"
+                        "Setelah itu, coba jalankan /start untuk setup ulang.",
+                        parse_mode="Markdown",
                     )
                 return ConversationHandler.END
         else:
