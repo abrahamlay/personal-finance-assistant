@@ -368,6 +368,7 @@ def get_onboarding_handler() -> ConversationHandler:
         fallbacks=[
             CommandHandler("cancel", cancel_onboarding),
             CommandHandler("skip", cancel_onboarding),
+            CommandHandler("start", start_onboarding),
         ],
         conversation_timeout=600,  # 10 minutes
         per_message=False,
