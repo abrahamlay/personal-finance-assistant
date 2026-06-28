@@ -15,7 +15,10 @@ logger = logging.getLogger(__name__)
 
 
 class OAuthManager:
-    SCOPES = ["https://www.googleapis.com/auth/drive.file"]
+    SCOPES = [
+        "https://www.googleapis.com/auth/drive.file",
+        "https://www.googleapis.com/auth/spreadsheets"
+    ]
     
     def __init__(self, token_store: TokenStore):
         self.settings = get_settings()
