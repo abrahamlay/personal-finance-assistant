@@ -3,9 +3,9 @@ import asyncio
 import sys
 import logging
 from aiohttp import web
+from telegram import Update, BotCommand
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ConversationHandler
 
-from telegram import Update
 from src.config import get_settings
 from src.auth.token_store import TokenStore
 from src.auth.oauth import OAuthManager
@@ -66,8 +66,28 @@ def build_bot() -> Application:
     )
     insight_service = InsightService(gemini_api_key=settings.gemini_api_key)
 
+    async def post_init(application: Application):
+        commands = [
+            BotCommand("start", "Mulai atau atur akun"),
+            BotCommand("bantuan", "Lihat daftar perintah"),
+            BotCommand("catat", "Catat transaksi manual"),
+            BotCommand("hariini", "Ringkasan hari ini"),
+            BotCommand("mingguan", "Ringkasan minggu ini"),
+            BotCommand("bulanan", "Ringkasan bulan ini"),
+            BotCommand("kategori", "Atur kategori"),
+            BotCommand("anggaran", "Atur budget"),
+            BotCommand("dashboard", "Buka spreadsheet"),
+            BotCommand("premium", "Upgrade ke Premium"),
+            BotCommand("statuspremium", "Cek langganan"),
+            BotCommand("ocr", "Scan struk (Premium)"),
+            BotCommand("tagihan", "Tagihan rutin (Premium)"),
+            BotCommand("reminder", "Pengingat tagihan (Premium)"),
+            BotCommand("insight", "Analisis keuangan (Premium)"),
+        ]
+        await application.bot.set_my_commands(commands)
+
     # Build bot
-    app = Application.builder().token(settings.telegram_token).build()
+    app = Application.builder().token(settings.telegram_token).post_init(post_init).build()
 
     # Store dependencies in bot_data (accessible in all handlers via context.bot_data)
     app.bot_data["token_store"] = token_store
