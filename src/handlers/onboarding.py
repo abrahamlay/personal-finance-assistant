@@ -58,7 +58,7 @@ async def start_onboarding(update: Update, context: ContextTypes.DEFAULT_TYPE) -
                         parse_mode="Markdown",
                     )
                 except Exception as e:
-                    logger.error("Sheet creation failed in standalone login: %s", e)
+                    logger.error("Sheet creation failed in standalone login: %s", e, exc_info=True)
                     await msg.edit_text(
                         f"⚠️ Login berhasil, tapi gagal membuat Google Sheet.\n\n"
                         f"*Error:* `{e}`\n\n"
