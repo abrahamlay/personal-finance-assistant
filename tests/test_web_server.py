@@ -1,5 +1,5 @@
 import hashlib
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 from aiohttp.test_utils import TestClient, TestServer
@@ -96,6 +96,16 @@ async def test_oauth_authorize_redirects_with_valid_token(client, mock_oauth_man
     resp = await client.get("/oauth/authorize?token=session_token_123", allow_redirects=False)
     assert resp.status == 302
     assert "https://accounts.google.com/o/oauth2/auth" in resp.headers["Location"]
+
+
+async def test_oauth_authorize_redirects_with_valid_init_data(client, mock_oauth_manager):
+    with patch("src.web_server.validate_telegram_init_data") as mock_val:
+        mock_val.return_value = {"id": "12345"}
+        mock_oauth_manager.get_authorization_url.return_value = ("https://accounts.google.com/o/oauth2/auth?test=1", "state123")
+        
+        resp = await client.get("/oauth/authorize?initData=valid_init_data", allow_redirects=False)
+        assert resp.status == 302
+        assert "https://accounts.google.com/o/oauth2/auth" in resp.headers["Location"]
 
 
 async def test_health_returns_ok(client):

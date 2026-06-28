@@ -2,7 +2,9 @@
 import json
 import logging
 import secrets
-from urllib.parse import urlencode
+import hmac
+import hashlib
+from urllib.parse import urlencode, parse_qsl
 from aiohttp import web
 
 from src.payments.midtrans import midtrans_webhook_handler
@@ -21,18 +23,50 @@ async def login_page(request: web.Request) -> web.Response:
     except FileNotFoundError:
         return web.Response(text="Login page not found", status=404)
 
+def validate_telegram_init_data(init_data: str, bot_token: str) -> dict | None:
+    """Validate Telegram WebApp initData and return user dict if valid."""
+    try:
+        vals = dict(parse_qsl(init_data))
+        if "hash" not in vals:
+            return None
+        received_hash = vals.pop("hash")
+        
+        # Sort and join
+        data_check_string = "\n".join(f"{k}={v}" for k, v in sorted(vals.items()))
+        
+        # HMAC-SHA256 signature
+        secret_key = hmac.new(b"WebAppData", bot_token.encode(), hashlib.sha256).digest()
+        calculated_hash = hmac.new(secret_key, data_check_string.encode(), hashlib.sha256).hexdigest()
+        
+        if calculated_hash == received_hash:
+            import json
+            return json.loads(vals.get("user", "{}"))
+    except Exception as e:
+        logger.error("Error validating telegram initData: %s", e)
+    return None
+
 @routes.get("/oauth/authorize")
 async def oauth_authorize(request: web.Request) -> web.Response:
-    """Generate Google OAuth URL. Uses the session token to identify the user."""
+    """Generate Google OAuth URL. Uses the session token or Telegram initData to identify the user."""
     oauth_manager = request.app["oauth_manager"]
     login_tokens = request.app["login_tokens"]
     
+    telegram_id = None
     token = request.query.get("token")
-    if not token or token not in login_tokens:
+    init_data = request.query.get("initData")
+    
+    if token and token in login_tokens:
+        telegram_id = login_tokens.get(token)
+    elif init_data:
+        from src.config import get_settings
+        bot_token = get_settings().telegram_token
+        user_info = validate_telegram_init_data(init_data, bot_token)
+        if user_info and "id" in user_info:
+            telegram_id = str(user_info["id"])
+        
+    if not telegram_id:
         return web.Response(text="Invalid or expired login session. Please request /login in the bot.", status=400)
         
-    telegram_id = login_tokens.get(token)
-    
     # Embed the telegram_id in the state, separated by double colons
     random_str = secrets.token_urlsafe(16)
     state = f"{telegram_id}::{random_str}"

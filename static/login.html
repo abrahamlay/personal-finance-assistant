@@ -239,32 +239,24 @@
             }
             saveTelegramInitParams();
 
-            var authUrl = tg.initDataUnsafe && tg.initDataUnsafe.start_param
-                ? '/oauth/authorize?start_param=' + encodeURIComponent(tg.initDataUnsafe.start_param)
-                : '/oauth/authorize';
-
             // --- Step 1: User clicks "Login dengan Google" ---
             loginBtn.addEventListener('click', function(e) {
                 e.preventDefault();
                 loadingEl.style.display = 'block';
                 loginBtn.disabled = true;
 
-                fetch(authUrl)
-                    .then(function(r) { return r.json(); })
-                    .then(function(data) {
-                        if (data.url) {
-                            saveTelegramInitParams();
-                            window.location.href = data.url;
-                        } else {
-                            throw new Error('Tidak ada URL OAuth');
-                        }
-                    })
-                    .catch(function(err) {
-                        loadingEl.style.display = 'none';
-                        loginBtn.disabled = false;
-                        fallbackCode.textContent = 'Gagal: ' + err.message;
-                        fallbackEl.style.display = 'block';
-                    });
+                var urlParams = new URLSearchParams(window.location.search);
+                var token = urlParams.get('token');
+                
+                var targetUrl = '/oauth/authorize';
+                if (token) {
+                    targetUrl += '?token=' + encodeURIComponent(token);
+                } else if (tg.initData) {
+                    targetUrl += '?initData=' + encodeURIComponent(tg.initData);
+                }
+
+                saveTelegramInitParams();
+                window.location.href = targetUrl;
             });
 
             // --- Step 2: After OAuth redirect, check for code+state ---
